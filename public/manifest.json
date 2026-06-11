@@ -1,0 +1,24 @@
+{
+  "name": "TCGRD — Pokemon Card Marketplace",
+  "short_name": "TCGRD",
+  "description": "Marketplace de cartas Pokemon para coleccionistas en Republica Dominicana",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#dc2626",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
