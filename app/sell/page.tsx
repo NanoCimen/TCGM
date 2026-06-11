@@ -28,10 +28,10 @@ export default async function SellPage() {
     >
       <div className="max-w-2xl mx-auto mb-8 text-center">
         <h1 className="text-3xl font-black tracking-tighter text-white mb-1">
-          Vender carta
+          Subir cartas
         </h1>
         <p className="text-sm text-gray-500">
-          Publica una carta en el mercado
+          Escanea o sube tus cartas al mercado
         </p>
       </div>
       <SellFlow />

@@ -6,27 +6,15 @@ import { compressImage } from "./compressImage";
 
 const ACCEPTED = "image/jpeg,image/png,image/webp";
 
-const TIPS = [
-  { icon: "📋", text: "Coloca la carta sobre fondo oscuro" },
-  { icon: "💡", text: "Asegúrate de tener buena iluminación" },
-  { icon: "🔢", text: "El número de la carta debe ser legible" },
-];
 
 function CardGuideFrame() {
   return (
     <div className="relative mx-auto" style={{ width: 160, height: 214 }}>
-      {/* Dashed card border */}
       <div className="absolute inset-0 rounded-2xl border-2 border-dashed border-gray-600" />
-
-      {/* Corner bracket — top-left */}
       <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-brand rounded-tl-2xl" />
-      {/* top-right */}
       <div className="absolute -top-px -right-px w-6 h-6 border-t-2 border-r-2 border-brand rounded-tr-2xl" />
-      {/* bottom-left */}
       <div className="absolute -bottom-px -left-px w-6 h-6 border-b-2 border-l-2 border-brand rounded-bl-2xl" />
-      {/* bottom-right */}
       <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-brand rounded-br-2xl" />
-
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
         <Camera className="w-8 h-8 text-gray-600" strokeWidth={1.5} />
         <p className="text-[11px] text-gray-500 text-center leading-tight">
@@ -39,58 +27,17 @@ function CardGuideFrame() {
   );
 }
 
-function ExamplePhotos() {
-  return (
-    <div className="flex gap-4 w-full">
-      {/* Bad example */}
-      <div className="flex-1 flex flex-col items-center gap-1.5">
-        <div
-          className="relative w-full rounded-xl overflow-hidden border border-gray-800 bg-gray-950"
-          style={{ aspectRatio: "3 / 4" }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-950" />
-          <div className="absolute inset-4 rounded-lg border border-gray-700 opacity-40 rotate-[15deg]" />
-          <div className="absolute inset-0 bg-red-900/10" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-9 h-9 rounded-full bg-red-950 border-2 border-red-500 flex items-center justify-center">
-              <span className="text-red-400 text-sm font-black leading-none">✕</span>
-            </div>
-          </div>
-        </div>
-        <span className="text-[11px] font-semibold text-red-400">Así no</span>
-      </div>
-
-      {/* Good example */}
-      <div className="flex-1 flex flex-col items-center gap-1.5">
-        <div
-          className="relative w-full rounded-xl overflow-hidden border border-gray-700 bg-gray-900"
-          style={{ aspectRatio: "3 / 4" }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-700 to-gray-900" />
-          <div className="absolute inset-3 rounded-lg border border-gray-500 opacity-50" />
-          <div className="absolute inset-0 bg-brand/5" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-9 h-9 rounded-full bg-brand/20 border-2 border-brand flex items-center justify-center">
-              <span className="text-brand text-sm font-black leading-none">✓</span>
-            </div>
-          </div>
-        </div>
-        <span className="text-[11px] font-semibold text-brand">Así sí</span>
-      </div>
-    </div>
-  );
-}
-
 export default function ImageUpload({
   previewUrl,
   onImageReady,
   onContinue,
+  onOpenScanner,
 }: {
   previewUrl: string | null;
   onImageReady: (dataUrl: string) => void;
   onContinue: () => void;
+  onOpenScanner: () => void;
 }) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
@@ -135,17 +82,9 @@ export default function ImageUpload({
         Sube tu carta
       </h2>
       <p className="text-sm text-gray-500 text-center mb-6">
-        Toma una foto clara de tu carta para identificarla con IA
+        Escanea o sube una foto clara de tu carta para identificarla con IA
       </p>
 
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept={ACCEPTED}
-        capture="environment"
-        className="hidden"
-        onChange={handleFile}
-      />
       <input
         ref={galleryInputRef}
         type="file"
@@ -163,7 +102,6 @@ export default function ImageUpload({
             className="max-h-[360px] w-auto rounded-2xl border border-gray-800 shadow-2xl mb-5"
           />
 
-          {/* Number legibility confirmation */}
           <label
             className={`flex items-start gap-3 w-full max-w-sm p-4 rounded-xl border cursor-pointer transition-colors mb-1 ${
               numberConfirmed
@@ -198,7 +136,11 @@ export default function ImageUpload({
             </p>
           )}
 
-          <div className={`flex flex-col sm:flex-row gap-3 w-full max-w-sm ${showNumberWarning ? "mt-0" : "mt-3"}`}>
+          <div
+            className={`flex flex-col sm:flex-row gap-3 w-full max-w-sm ${
+              showNumberWarning ? "mt-0" : "mt-3"
+            }`}
+          >
             <button
               type="button"
               onClick={() => galleryInputRef.current?.click()}
@@ -229,36 +171,14 @@ export default function ImageUpload({
             <>
               <CardGuideFrame />
 
-              {/* Tips */}
-              <div className="w-full max-w-xs space-y-2">
-                {TIPS.map(({ icon, text }) => (
-                  <div
-                    key={text}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gray-900/60 border border-gray-800"
-                  >
-                    <span className="text-base leading-none flex-shrink-0">{icon}</span>
-                    <span className="text-xs text-gray-300">{text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Example photos */}
-              <div className="w-full max-w-xs">
-                <p className="text-[11px] text-gray-500 text-center mb-3 uppercase tracking-wider font-semibold">
-                  Ejemplo de foto
-                </p>
-                <ExamplePhotos />
-              </div>
-
-              {/* Action buttons */}
               <div className="flex flex-col gap-3 w-full max-w-xs">
                 <button
                   type="button"
-                  onClick={() => cameraInputRef.current?.click()}
+                  onClick={onOpenScanner}
                   className="flex items-center justify-center gap-2 bg-brand text-black text-sm font-bold py-4 rounded-xl hover:bg-[#00c64b] transition-colors"
                 >
                   <Camera className="w-4 h-4" />
-                  Tomar foto
+                  Escanear con cámara
                 </button>
                 <button
                   type="button"

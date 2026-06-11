@@ -1,15 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Camera,
-  Check,
-  Info,
-  Loader2,
-  User as UserIcon,
-  Wallet,
-} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Camera, Check, Info, Loader2, Move, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
@@ -94,8 +88,8 @@ export default function ProfileSettings({
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState("");
+  const [savedToast, setSavedToast] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [bannerUrl, setBannerUrl] = useState<string | null>(initialBannerUrl);
@@ -106,6 +100,16 @@ export default function ProfileSettings({
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
+  const [bannerPosition, setBannerPosition] = useState("50% 50%");
+  const [repositioning, setRepositioning] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
+  const savedPositionRef = useRef("50% 50%");
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`banner_pos_${userId}`);
+    if (saved) setBannerPosition(saved);
+  }, [userId]);
+
   const [notifications, setNotifications] =
     useState<Notifications>(initialNotifications);
   const [savingNotifs, setSavingNotifs] = useState(false);
@@ -113,6 +117,40 @@ export default function ProfileSettings({
   const [notifsError, setNotifsError] = useState("");
 
   const initials = (displayName || email).substring(0, 2).toUpperCase();
+
+  function showSavedToast() {
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 2500);
+  }
+
+  function handleBannerPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!repositioning) return;
+    e.preventDefault();
+    const [px, py] = bannerPosition.split(" ").map(parseFloat);
+    dragStartRef.current = { x: e.clientX, y: e.clientY, posX: px ?? 50, posY: py ?? 50 };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleBannerPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!repositioning || !dragStartRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dx = ((e.clientX - dragStartRef.current.x) / rect.width) * 100;
+    const dy = ((e.clientY - dragStartRef.current.y) / rect.height) * 100;
+    const newX = Math.max(0, Math.min(100, dragStartRef.current.posX - dx));
+    const newY = Math.max(0, Math.min(100, dragStartRef.current.posY - dy));
+    setBannerPosition(`${newX.toFixed(1)}% ${newY.toFixed(1)}%`);
+  }
+
+  function handleBannerPointerUp() {
+    dragStartRef.current = null;
+  }
+
+  function saveRepositionedBanner() {
+    localStorage.setItem(`banner_pos_${userId}`, bannerPosition);
+    savedPositionRef.current = bannerPosition;
+    setRepositioning(false);
+    showSavedToast();
+  }
 
   async function uploadImage(file: File, kind: "avatar" | "banner") {
     setMediaError("");
@@ -135,15 +173,19 @@ export default function ProfileSettings({
       const url = `${data.publicUrl}?v=${Date.now()}`;
 
       const column = kind === "avatar" ? "avatar_url" : "banner_url";
-      const { error: dbError } = await supabase
-        .from("users")
-        .update({ [column]: url })
-        .eq("id", userId);
-
-      if (dbError) throw dbError;
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [column]: url }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error ?? `Error ${res.status}`);
+      }
 
       if (kind === "avatar") setAvatarUrl(url);
       else setBannerUrl(url);
+      showSavedToast();
       router.refresh();
     } catch (err) {
       setMediaError(
@@ -175,7 +217,6 @@ export default function ProfileSettings({
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     setProfileError("");
-    setProfileSaved(false);
 
     const trimmed = displayName.trim();
     if (trimmed.length < 2) {
@@ -184,21 +225,21 @@ export default function ProfileSettings({
     }
 
     setSavingProfile(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("users")
-      .update({ display_name: trimmed })
-      .eq("id", userId);
-
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ display_name: trimmed }),
+    });
+    const json = await res.json();
     setSavingProfile(false);
 
-    if (error) {
-      setProfileError(error.message);
+    if (!res.ok) {
+      setProfileError(json.error ?? `Error ${res.status}`);
       return;
     }
 
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2500);
+    showSavedToast();
+    router.refresh();
   }
 
   async function saveNotifications(next: Notifications) {
@@ -232,6 +273,7 @@ export default function ProfileSettings({
   }
 
   return (
+    <>
     <DashboardShell active="perfil" avatarUrl={avatarUrl} initials={initials}>
       <div className="max-w-2xl mx-auto space-y-10">
         {/* Perfil */}
@@ -256,28 +298,96 @@ export default function ProfileSettings({
             <form onSubmit={handleSaveProfile}>
               {/* Banner */}
               <div className="relative mb-12">
-                <button
-                  type="button"
-                  onClick={() => bannerInputRef.current?.click()}
-                  disabled={uploadingBanner}
-                  className="relative w-full h-36 sm:h-44 rounded-xl bg-[#1a1a1a] border border-gray-800 flex items-center justify-center text-gray-500 hover:text-white overflow-hidden transition-colors group/banner"
+                <div
+                  className={`relative w-full h-36 sm:h-44 rounded-xl bg-[#1a1a1a] overflow-hidden border transition-colors ${
+                    repositioning
+                      ? "border-brand/50 cursor-grab active:cursor-grabbing select-none"
+                      : "border-gray-800"
+                  }`}
+                  onPointerDown={handleBannerPointerDown}
+                  onPointerMove={handleBannerPointerMove}
+                  onPointerUp={handleBannerPointerUp}
                 >
                   {bannerUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={bannerUrl}
                       alt="Banner"
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                      style={{ objectPosition: bannerPosition }}
+                      draggable={false}
                     />
                   )}
-                  <span className="relative z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center group-hover/banner:bg-black/80 transition-colors">
-                    {uploadingBanner ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Camera className="w-5 h-5" />
-                    )}
-                  </span>
-                </button>
+
+                  {/* Upload button — hidden while repositioning */}
+                  {!repositioning && (
+                    <button
+                      type="button"
+                      onClick={() => bannerInputRef.current?.click()}
+                      disabled={uploadingBanner}
+                      className="absolute inset-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-black/20 transition-colors group/banner"
+                    >
+                      <span className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center group-hover/banner:bg-black/80 transition-colors">
+                        {uploadingBanner ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Camera className="w-5 h-5" />
+                        )}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Drag hint */}
+                  {repositioning && (
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                      <span className="text-xs text-white/80 bg-black/50 px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
+                        Arrastra para ajustar
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Reposition / confirm controls */}
+                  {bannerUrl && !uploadingBanner && (
+                    <div className="absolute top-2 right-2 flex gap-1.5 z-10">
+                      {repositioning ? (
+                        <>
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => {
+                              setRepositioning(false);
+                              setBannerPosition(savedPositionRef.current);
+                            }}
+                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black/70 text-gray-300 hover:bg-black/90 backdrop-blur-sm transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={saveRepositionedBanner}
+                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-brand text-black hover:bg-[#00c64b] transition-colors"
+                          >
+                            Listo
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => {
+                            savedPositionRef.current = bannerPosition;
+                            setRepositioning(true);
+                          }}
+                          className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black/60 text-white/80 hover:bg-black/80 backdrop-blur-sm transition-colors flex items-center gap-1.5"
+                        >
+                          <Move className="w-3 h-3" />
+                          Ajustar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Avatar overlapping banner */}
                 <button
@@ -352,8 +462,6 @@ export default function ProfileSettings({
                     >
                       {savingProfile ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : profileSaved ? (
-                        <Check className="w-4 h-4" />
                       ) : (
                         "Guardar"
                       )}
@@ -505,5 +613,22 @@ export default function ProfileSettings({
         </section>
       </div>
     </DashboardShell>
+
+    <AnimatePresence>
+      {savedToast && (
+        <motion.div
+          key="saved-toast"
+          initial={{ y: -64 }}
+          animate={{ y: 0 }}
+          exit={{ y: -64 }}
+          transition={{ type: "spring", stiffness: 500, damping: 38 }}
+          className="fixed top-0 inset-x-0 z-[200] bg-brand text-black flex items-center justify-center gap-2.5 py-4 text-sm font-bold shadow-[0_4px_24px_rgba(0,229,89,0.35)]"
+        >
+          <Check className="w-4 h-4" />
+          Perfil actualizado correctamente
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   );
 }

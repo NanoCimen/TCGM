@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { dataUrlToBlob } from "./compressImage";
 import StepIndicator from "./StepIndicator";
+import CameraScanner from "./CameraScanner";
 import ImageUpload from "./ImageUpload";
 import AIIdentification, {
   type Confidence,
@@ -44,12 +45,18 @@ export default function SellFlow() {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
 
+  // Scanner + batch queue
+  const [showScanner, setShowScanner] = useState(false);
+  const [cardQueue, setCardQueue] = useState<string[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
+
   const update = useCallback(
     (patch: Partial<typeof INITIAL_STATE>) =>
       setState((s) => ({ ...s, ...patch })),
     []
   );
 
+  // Called when gallery image is selected
   const handleImageReady = useCallback((dataUrl: string) => {
     setState((s) => ({
       ...INITIAL_STATE,
@@ -57,6 +64,16 @@ export default function SellFlow() {
       price: s.price === "" ? "" : s.price,
     }));
   }, []);
+
+  // Called when scanner returns one or more captures
+  function handleScannerCaptures(previewUrls: string[]) {
+    setShowScanner(false);
+    if (previewUrls.length === 0) return;
+    setCardQueue(previewUrls);
+    setQueueIndex(0);
+    setState({ ...INITIAL_STATE, previewUrl: previewUrls[0] });
+    setStep(2);
+  }
 
   const handleIdentified = useCallback((result: IdentifyResult) => {
     setState((s) => ({
@@ -101,9 +118,6 @@ export default function SellFlow() {
       return;
     }
 
-    // Ensure a public.users row exists before attempting the card insert.
-    // The auth trigger creates it on signup, but this is a belt-and-suspenders
-    // guard against FK violations if the row is somehow missing.
     const { data: userRow } = await supabase
       .from("users")
       .select("id")
@@ -183,97 +197,147 @@ export default function SellFlow() {
     router.refresh();
   }
 
+  function handleNextInQueue() {
+    const next = queueIndex + 1;
+    if (next < cardQueue.length) {
+      setQueueIndex(next);
+      setState({ ...INITIAL_STATE, previewUrl: cardQueue[next] });
+      setPublishError("");
+      setStep(2);
+    } else {
+      handleReset();
+    }
+  }
+
   function handleReset() {
     setState(INITIAL_STATE);
     setPublishError("");
+    setCardQueue([]);
+    setQueueIndex(0);
     setStep(1);
   }
 
+  const isBatch = cardQueue.length > 1;
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <StepIndicator current={step} />
-
-      {step === 1 && (
-        <ImageUpload
-          previewUrl={state.previewUrl}
-          onImageReady={handleImageReady}
-          onContinue={() => setStep(2)}
+    <>
+      {/* Full-screen camera scanner overlay */}
+      {showScanner && (
+        <CameraScanner
+          onCaptures={handleScannerCaptures}
+          onCancel={() => setShowScanner(false)}
         />
       )}
 
-      {step === 2 && state.previewUrl && (
-        <AIIdentification
-          previewUrl={state.previewUrl}
-          cardName={state.cardName}
-          setName={state.setName}
-          cardNumber={state.cardNumber}
-          confidence={state.confidence}
-          identified={state.identified}
-          enriched={state.enriched}
-          variant={state.variant}
-          language={state.language}
-          onFieldsChange={(fields) =>
-            update({
-              ...(fields.cardName !== undefined && {
-                cardName: fields.cardName,
-              }),
-              ...(fields.setName !== undefined && { setName: fields.setName }),
-              ...(fields.cardNumber !== undefined && {
-                cardNumber: fields.cardNumber,
-              }),
-            })
-          }
-          onIdentified={handleIdentified}
-          onVariantChange={(variant) =>
-            update({ variant, tcgFetched: false, tcgPrice: null, officialImageUrl: null, tcgPriceData: null })
-          }
-          onLanguageChange={(language) =>
-            update({ language, tcgFetched: false, tcgPrice: null, officialImageUrl: null, tcgPriceData: null })
-          }
-          onConfirm={() => setStep(3)}
-          onBack={() => setStep(1)}
-        />
-      )}
+      <div className="max-w-2xl mx-auto">
+        <StepIndicator current={step} />
 
-      {step === 3 && state.previewUrl && (
-        <PriceDetails
-          previewUrl={state.previewUrl}
-          cardName={state.cardName}
-          setName={state.setName}
-          cardNumber={state.cardNumber}
-          variant={state.variant}
-          language={state.language}
-          price={state.price}
-          notes={state.notes}
-          tcgPrice={state.tcgPrice}
-          tcgFetched={state.tcgFetched}
-          tcgPriceData={state.tcgPriceData}
-          isGraded={state.isGraded}
-          grade={state.grade}
-          gradeCompany={state.gradeCompany}
-          publishing={publishing}
-          publishError={publishError}
-          onPriceChange={(price) => update({ price })}
-          onNotesChange={(notes) => update({ notes })}
-          onTcgResult={handleTcgResult}
-          onIsGradedChange={(isGraded) => update({ isGraded })}
-          onGradeChange={(grade) => update({ grade })}
-          onGradeCompanyChange={(gradeCompany) => update({ gradeCompany })}
-          onPublish={handlePublish}
-          onBack={() => setStep(2)}
-        />
-      )}
+        {/* Batch progress */}
+        {isBatch && step < 4 && (
+          <p className="text-center text-xs font-bold text-brand mb-6 -mt-4">
+            Carta {queueIndex + 1} de {cardQueue.length}
+          </p>
+        )}
 
-      {step === 4 && state.previewUrl && (
-        <SuccessStep
-          previewUrl={state.previewUrl}
-          cardName={state.cardName}
-          setName={state.setName}
-          price={state.price}
-          cardId={state.cardId}
-          onReset={handleReset}
-        />
-      )}
-    </div>
+        {step === 1 && (
+          <ImageUpload
+            previewUrl={state.previewUrl}
+            onImageReady={handleImageReady}
+            onContinue={() => setStep(2)}
+            onOpenScanner={() => setShowScanner(true)}
+          />
+        )}
+
+        {step === 2 && state.previewUrl && (
+          <AIIdentification
+            previewUrl={state.previewUrl}
+            cardName={state.cardName}
+            setName={state.setName}
+            cardNumber={state.cardNumber}
+            confidence={state.confidence}
+            identified={state.identified}
+            enriched={state.enriched}
+            variant={state.variant}
+            language={state.language}
+            onFieldsChange={(fields) =>
+              update({
+                ...(fields.cardName !== undefined && {
+                  cardName: fields.cardName,
+                }),
+                ...(fields.setName !== undefined && { setName: fields.setName }),
+                ...(fields.cardNumber !== undefined && {
+                  cardNumber: fields.cardNumber,
+                }),
+              })
+            }
+            onIdentified={handleIdentified}
+            onVariantChange={(variant) =>
+              update({
+                variant,
+                tcgFetched: false,
+                tcgPrice: null,
+                officialImageUrl: null,
+                tcgPriceData: null,
+              })
+            }
+            onLanguageChange={(language) =>
+              update({
+                language,
+                tcgFetched: false,
+                tcgPrice: null,
+                officialImageUrl: null,
+                tcgPriceData: null,
+              })
+            }
+            onConfirm={() => setStep(3)}
+            onBack={() => (isBatch ? handleReset() : setStep(1))}
+          />
+        )}
+
+        {step === 3 && state.previewUrl && (
+          <PriceDetails
+            previewUrl={state.previewUrl}
+            cardName={state.cardName}
+            setName={state.setName}
+            cardNumber={state.cardNumber}
+            variant={state.variant}
+            language={state.language}
+            price={state.price}
+            notes={state.notes}
+            tcgPrice={state.tcgPrice}
+            tcgFetched={state.tcgFetched}
+            tcgPriceData={state.tcgPriceData}
+            isGraded={state.isGraded}
+            grade={state.grade}
+            gradeCompany={state.gradeCompany}
+            publishing={publishing}
+            publishError={publishError}
+            onPriceChange={(price) => update({ price })}
+            onNotesChange={(notes) => update({ notes })}
+            onTcgResult={handleTcgResult}
+            onIsGradedChange={(isGraded) => update({ isGraded })}
+            onGradeChange={(grade) => update({ grade })}
+            onGradeCompanyChange={(gradeCompany) => update({ gradeCompany })}
+            onPublish={handlePublish}
+            onBack={() => setStep(2)}
+          />
+        )}
+
+        {step === 4 && state.previewUrl && (
+          <SuccessStep
+            previewUrl={state.previewUrl}
+            cardName={state.cardName}
+            setName={state.setName}
+            price={state.price}
+            cardId={state.cardId}
+            onReset={handleReset}
+            hasMore={isBatch && queueIndex < cardQueue.length - 1}
+            currentCard={queueIndex + 1}
+            totalCards={cardQueue.length}
+            onNextCard={handleNextInQueue}
+          />
+        )}
+      </div>
+    </>
   );
 }

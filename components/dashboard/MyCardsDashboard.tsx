@@ -109,7 +109,7 @@ export default function MyCardsDashboard({
               className="flex items-center gap-2 bg-brand text-black text-sm font-bold px-4 py-2.5 rounded-lg hover:bg-[#00c64b] transition-colors"
             >
               <Plus className="w-4 h-4" strokeWidth={2.5} />
-              Enviar mis cartas
+              Subir cartas
             </Link>
           </div>
         </div>

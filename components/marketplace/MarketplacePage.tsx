@@ -510,13 +510,10 @@ function TrendingSection({
                 <div className="flex justify-center items-center">
                   <StatusBadge status={label} />
                 </div>
-                <div className="flex items-center justify-end gap-3 pr-2">
+                <div className="flex items-center justify-end pr-2">
                   <span className="font-mono text-[11px] font-medium text-gray-700 dark:text-gray-300">
                     {item.seller_name}
                   </span>
-                  <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-500 dark:text-gray-400 shadow-inner">
-                    {item.seller_name.substring(0, 2).toUpperCase()}
-                  </div>
                 </div>
               </div>
             );

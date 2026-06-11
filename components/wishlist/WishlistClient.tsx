@@ -175,7 +175,7 @@ function SearchModal({
           ) : results.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-sm text-gray-600 font-medium">
-                No se encontraron cartas para "{query}"
+                No se encontraron cartas para «{query}»
               </p>
             </div>
           ) : (
@@ -414,9 +414,8 @@ export default function WishlistClient({
             className="flex items-center justify-between gap-4 mb-10"
           >
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
-                <Heart className="w-6 h-6 text-brand" fill="currentColor" />
-                Mi Wishlist
+              <h1 className="text-2xl font-black tracking-tight text-white">
+                Wishlist
               </h1>
               <p className="text-sm text-gray-600 mt-1">
                 {items.length === 0
