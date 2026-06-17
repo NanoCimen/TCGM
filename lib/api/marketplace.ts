@@ -69,6 +69,7 @@ export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
       users!seller_id ( display_name )
     `
     )
+    .eq("status", "available")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -85,16 +86,29 @@ export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
 export async function getMarketplaceStats(
   cards: MarketplaceCard[]
 ): Promise<MarketplaceStats> {
-  const available = cards.filter((c) => c.status === "available");
-  const prices = available
+  const supabase = await createClient();
+
+  const prices = cards
     .map((c) => c.price_usd)
     .filter((p): p is number => p != null);
 
   const withImages = cards.filter((c) => c.image_url);
 
+  // Total value of completed sales for volume display
+  const { data: soldCards } = await supabase
+    .from("cards")
+    .select("price_usd")
+    .eq("status", "sold");
+
+  const soldVolume = (soldCards ?? []).reduce(
+    (sum, c) => sum + (c.price_usd ?? 0),
+    0
+  );
+
   return {
-    listingCount: available.length,
+    listingCount: cards.length,
     floorPrice: prices.length ? Math.min(...prices) : null,
+    soldVolume,
     heroImage: withImages[0]?.image_url ?? null,
     thumbnailImage:
       withImages[1]?.image_url ?? withImages[0]?.image_url ?? null,

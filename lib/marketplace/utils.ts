@@ -23,6 +23,8 @@ export function formatVolume(count: number): string {
 
 export function statusLabel(status: CardStatus): string {
   switch (status) {
+    case "draft":
+      return "Portafolio";
     case "available":
       return "Disponible";
     case "hold":

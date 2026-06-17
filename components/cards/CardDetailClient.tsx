@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, ChevronDown, MessageCircle, Tag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, CheckCheck, ChevronDown, Loader2, MessageCircle, Tag, X } from "lucide-react";
+import { openBuyNowWhatsApp, openOfferAcceptedWhatsApp } from "@/lib/marketplace/whatsapp";
 import {
   motion,
   AnimatePresence,
@@ -39,11 +41,13 @@ export type CardDetailData = {
 type AccordionKey = "detalles" | "precios" | "notas";
 
 const STATUS_LABEL: Record<string, string> = {
+  draft: "En portafolio",
   available: "Disponible",
   hold: "Reservada",
   sold: "Vendida",
 };
 const STATUS_DOT: Record<string, string> = {
+  draft: "bg-gray-500",
   available: "bg-green-400",
   hold: "bg-amber-400",
   sold: "bg-red-400",
@@ -238,19 +242,166 @@ function AccordionItem({
 
 export default function CardDetailClient({
   card,
+  sellerId,
   sellerName,
+  currentUserId,
+  existingOffer,
   lastSaleUsd,
   livePrice,
 }: {
   card: CardDetailData;
+  sellerId: string;
   sellerName: string;
+  currentUserId: string | null;
+  existingOffer: { id: string; offer_price: number } | null;
   lastSaleUsd: number | null;
   livePrice: TCGPriceResult | null;
 }) {
+  const router = useRouter();
   const [photoTab, setPhotoTab] = useState<"oficial" | "real">(
     card.official_image_url ? "oficial" : "real"
   );
   const [openSection, setOpenSection] = useState<AccordionKey | null>(null);
+
+  // Seller management state
+  const [delistConfirm, setDelistConfirm] = useState(false);
+  const [delistError, setDelistError] = useState("");
+  const [delisting, setDelisting] = useState(false);
+  const [markingSold, setMarkingSold] = useState(false);
+  const [sellerActionError, setSellerActionError] = useState("");
+  // Publish-from-draft state
+  const [publishExpanded, setPublishExpanded] = useState(false);
+  const [publishPrice, setPublishPrice] = useState(
+    card.price_usd != null ? String(card.price_usd) : ""
+  );
+  const [publishLoading, setPublishLoading] = useState(false);
+  const [publishError, setPublishError] = useState("");
+
+  // Offer / buy flow state
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [buyConfirm, setBuyConfirm] = useState(false);
+  const [offerPrice, setOfferPrice] = useState(
+    card.price_usd ? String(Math.round(card.price_usd * 0.9 * 59)) : ""
+  );
+  const [offerMessage, setOfferMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [ctaError, setCtaError] = useState("");
+  const [dealDone, setDealDone] = useState<{
+    offerId: string;
+    priceUsd: number;
+    isBuyNow: boolean;
+  } | null>(null);
+
+  const isSeller = !!currentUserId && currentUserId === sellerId;
+
+  async function handlePublishListing() {
+    const priceUsd = parseFloat(publishPrice);
+    if (!priceUsd || priceUsd <= 0) { setPublishError("Ingresa un precio válido"); return; }
+    setPublishError("");
+    setPublishLoading(true);
+    try {
+      const res = await fetch(`/api/cards/${card.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "available", price_usd: priceUsd }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setPublishError(json.error); return; }
+      router.refresh();
+      setPublishExpanded(false);
+    } finally {
+      setPublishLoading(false);
+    }
+  }
+
+  async function handleUnlist() {
+    setDelistError("");
+    setDelisting(true);
+    try {
+      const res = await fetch(`/api/cards/${card.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setDelistError(json.error); return; }
+      router.refresh(); // stays on same page — card now shows as draft
+      setDelistConfirm(false);
+    } finally {
+      setDelisting(false);
+    }
+  }
+
+  async function handleMarkSold() {
+    setSellerActionError("");
+    setMarkingSold(true);
+    try {
+      const res = await fetch(`/api/cards/${card.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "sold" }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setSellerActionError(json.error); return; }
+      router.refresh();
+    } finally {
+      setMarkingSold(false);
+    }
+  }
+
+  async function handleBuyNow() {
+    setCtaError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          card_id: card.id,
+          offer_price: card.price_usd,
+          is_buy_now: true,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setCtaError(json.error); return; }
+      setDealDone({ offerId: json.offer_id, priceUsd: card.price_usd!, isBuyNow: true });
+      setBuyConfirm(false);
+      openBuyNowWhatsApp({
+        cardName: card.card_name,
+        setName: card.set_name,
+        sellerName,
+        priceUsd: card.price_usd!,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleMakeOffer(e: React.FormEvent) {
+    e.preventDefault();
+    setCtaError("");
+    const priceUsd = parseFloat(offerPrice) / 59;
+    if (!priceUsd || priceUsd <= 0) { setCtaError("Ingresa un precio válido"); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          card_id: card.id,
+          offer_price: priceUsd,
+          message: offerMessage,
+          is_buy_now: false,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setCtaError(json.error); return; }
+      setDealDone({ offerId: json.offer_id, priceUsd, isBuyNow: false });
+      setShowOfferModal(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   const toggle = (key: AccordionKey) =>
     setOpenSection((v) => (v === key ? null : key));
@@ -298,11 +449,11 @@ export default function CardDetailClient({
       >
         <div className="max-w-screen-xl mx-auto px-6 h-full flex items-center justify-between">
           <Link
-            href="/"
+            href={isSeller ? "/dashboard" : "/"}
             className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-white transition-colors duration-200"
           >
             <ArrowLeft className="w-4 h-4" />
-            Mercado
+            {isSeller ? "Mis cartas" : "Mercado"}
           </Link>
           <Link href="/" className="flex items-center gap-2">
             <Image src="/solo-logo.png" alt="TCGRD" width={26} height={26} className="h-[26px] w-[26px]" />
@@ -529,59 +680,353 @@ export default function CardDetailClient({
           </div>
 
           {/* ── CTA ── */}
-          {card.status === "available" && (
-            <motion.div
-              custom={7}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className="flex flex-col gap-2.5 mb-9"
-            >
-              <motion.a
-                href={`https://wa.me/?text=${encodeURIComponent(
-                  `Hola, me interesa esta carta: ${card.card_name}${
-                    card.set_name ? ` (${card.set_name})` : ""
-                  } — ${formatPrice(card.price_usd)}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                whileHover={{
-                  scale: 1.02,
-                  boxShadow: "0 0 70px -12px rgba(0,229,89,0.55)",
-                }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 280, damping: 22 }}
-                className="relative w-full overflow-hidden bg-brand text-black text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2.5 shadow-[0_0_40px_-18px_rgba(0,229,89,0.4)]"
-              >
-                {/* Shimmer sweep */}
-                <motion.span
-                  aria-hidden
-                  initial={{ x: "-120%" }}
-                  animate={{ x: "220%" }}
-                  transition={{
-                    duration: 1.6,
-                    delay: 1.2,
-                    repeat: Infinity,
-                    repeatDelay: 4,
-                    ease: "easeInOut",
-                  }}
-                  className="absolute inset-0 w-full bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 pointer-events-none"
-                />
-                <MessageCircle className="w-4 h-4 relative z-10" />
-                <span className="relative z-10">Contactar vendedor</span>
-              </motion.a>
+          <motion.div
+            custom={7}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="flex flex-col gap-2.5 mb-9"
+          >
+            {/* Own listing — seller management */}
+            {isSeller && (
+              <div className="space-y-2.5">
+                {/* Status badge */}
+                <div className={`w-full text-sm font-medium py-3.5 rounded-2xl text-center border ${
+                  card.status === "draft"
+                    ? "border-white/[0.07] bg-white/[0.02] text-gray-400"
+                    : card.status === "available"
+                    ? "border-green-900/50 bg-green-950/30 text-green-400"
+                    : card.status === "hold"
+                    ? "border-amber-900/50 bg-amber-950/30 text-amber-400"
+                    : "border-white/[0.07] bg-white/[0.02] text-gray-500"
+                }`}>
+                  {card.status === "draft" && "Carta en tu portafolio — no publicada"}
+                  {card.status === "available" && "Tu carta está publicada y disponible"}
+                  {card.status === "hold" && "Carta reservada — pendiente de entrega"}
+                  {card.status === "sold" && "Carta vendida"}
+                </div>
 
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.01, backgroundColor: "rgba(255,255,255,0.04)" }}
-                whileTap={{ scale: 0.99 }}
-                transition={{ type: "spring", stiffness: 300, damping: 26 }}
-                className="w-full border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-4 rounded-2xl transition-colors"
+                {sellerActionError && (
+                  <p className="text-red-400 text-xs text-center">{sellerActionError}</p>
+                )}
+
+                {/* DRAFT: inline publish form */}
+                {card.status === "draft" && (
+                  publishExpanded ? (
+                    <div className="space-y-3 bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4">
+                      <p className="text-xs font-bold text-gray-400">
+                        Precio de venta
+                        {card.tcg_market_price != null && (
+                          <span className="text-gray-600 font-normal ml-1">
+                            · referencia mercado: ${Number(card.tcg_market_price).toFixed(2)} USD
+                          </span>
+                        )}
+                      </p>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">$</span>
+                        <input
+                          type="number"
+                          value={publishPrice}
+                          onChange={(e) => { setPublishPrice(e.target.value); setPublishError(""); }}
+                          placeholder="0.00"
+                          min="0.01"
+                          step="0.01"
+                          autoFocus
+                          className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3 pl-8 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
+                        />
+                      </div>
+                      {publishPrice && parseFloat(publishPrice) > 0 && (
+                        <p className="text-[11px] text-gray-500 font-mono">
+                          {"~"} RD${(parseFloat(publishPrice) * 59).toLocaleString("es-DO", { maximumFractionDigits: 0 })}
+                        </p>
+                      )}
+                      {publishError && <p className="text-red-400 text-xs">{publishError}</p>}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setPublishExpanded(false); setPublishError(""); }}
+                          className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3 rounded-xl transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={publishLoading || !publishPrice || parseFloat(publishPrice) <= 0}
+                          onClick={handlePublishListing}
+                          className="flex-1 bg-brand text-black text-sm font-bold py-3 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {publishLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Publicar al mercado"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPublishExpanded(true)}
+                      className="w-full bg-brand text-black text-sm font-bold py-4 rounded-2xl hover:bg-[#00c64b] transition-colors"
+                    >
+                      Publicar al mercado
+                    </button>
+                  )
+                )}
+
+                {/* HOLD: confirm delivery */}
+                {card.status === "hold" && (
+                  <button
+                    type="button"
+                    disabled={markingSold}
+                    onClick={handleMarkSold}
+                    className="w-full flex items-center justify-center gap-2 border border-white/[0.09] text-gray-300 hover:text-white text-sm font-medium py-3.5 rounded-2xl transition-colors disabled:opacity-50"
+                  >
+                    {markingSold ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
+                    Confirmar entrega
+                  </button>
+                )}
+
+                {/* AVAILABLE: unlist back to portfolio */}
+                {card.status === "available" && (
+                  delistConfirm ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-400 text-center">
+                        ¿Retirar <span className="text-white font-semibold">{card.card_name}</span> del mercado?
+                        <br /><span className="text-xs text-gray-600">Volverá a tu portafolio. Las ofertas pendientes se cancelarán.</span>
+                      </p>
+                      {delistError && <p className="text-red-400 text-xs text-center">{delistError}</p>}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setDelistConfirm(false); setDelistError(""); }}
+                          className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-2xl transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={delisting}
+                          onClick={handleUnlist}
+                          className="flex-1 border border-gray-700 text-gray-300 hover:text-white text-sm font-bold py-3.5 rounded-2xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {delisting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sí, retirar"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDelistConfirm(true)}
+                      className="w-full flex items-center justify-center gap-2 border border-white/[0.06] text-gray-600 hover:text-gray-300 hover:border-gray-700 text-sm font-medium py-3.5 rounded-2xl transition-colors"
+                    >
+                      Retirar del mercado
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+
+            {/* Not logged in */}
+            {!currentUserId && card.status === "available" && (
+              <Link
+                href="/login"
+                className="w-full bg-brand text-black text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#00c64b] transition-colors"
               >
-                Hacer oferta →
-              </motion.button>
-            </motion.div>
-          )}
+                Inicia sesión para comprar
+              </Link>
+            )}
+
+            {/* Deal already done this session */}
+            {dealDone && (
+              <div className="space-y-2.5">
+                <div className="w-full border border-brand/30 bg-brand/5 text-brand text-sm font-bold py-4 rounded-2xl text-center">
+                  {dealDone.isBuyNow ? "¡Compra confirmada! 🎉" : "¡Oferta enviada! El vendedor te notificará."}
+                </div>
+                {dealDone.isBuyNow && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openBuyNowWhatsApp({
+                        cardName: card.card_name,
+                        setName: card.set_name,
+                        sellerName,
+                        priceUsd: dealDone.priceUsd,
+                      })
+                    }
+                    className="w-full border border-[#25D366]/30 bg-[#25D366]/5 text-[#25D366] text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#25D366]/10 transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Abrir WhatsApp con el vendedor
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Buyer CTAs */}
+            {currentUserId && !isSeller && !dealDone && card.status === "available" && (
+              <>
+                {existingOffer ? (
+                  <div className="w-full border border-amber-500/30 bg-amber-500/5 text-amber-400 text-sm font-medium py-4 rounded-2xl text-center">
+                    Ya tienes una oferta pendiente — {formatPrice(existingOffer.offer_price)}
+                  </div>
+                ) : buyConfirm ? (
+                  <div className="space-y-2.5">
+                    <p className="text-sm text-gray-400 text-center">
+                      ¿Confirmas la compra de{" "}
+                      <span className="text-white font-semibold">{card.card_name}</span>{" "}
+                      por{" "}
+                      <span className="text-brand font-bold">{formatPrice(card.price_usd)}</span>?
+                    </p>
+                    {ctaError && <p className="text-red-400 text-xs text-center">{ctaError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setBuyConfirm(false); setCtaError(""); }}
+                        className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-2xl transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleBuyNow}
+                        disabled={submitting}
+                        className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-2xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sí, comprar"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <motion.button
+                      type="button"
+                      onClick={() => setBuyConfirm(true)}
+                      whileHover={{ scale: 1.02, boxShadow: "0 0 70px -12px rgba(0,229,89,0.55)" }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                      className="relative w-full overflow-hidden bg-brand text-black text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2.5 shadow-[0_0_40px_-18px_rgba(0,229,89,0.4)]"
+                    >
+                      <motion.span
+                        aria-hidden
+                        initial={{ x: "-120%" }}
+                        animate={{ x: "220%" }}
+                        transition={{ duration: 1.6, delay: 1.2, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
+                        className="absolute inset-0 w-full bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 pointer-events-none"
+                      />
+                      <span className="relative z-10">Comprar ahora — {formatPrice(card.price_usd)}</span>
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      onClick={() => setShowOfferModal(true)}
+                      whileHover={{ scale: 1.01, backgroundColor: "rgba(255,255,255,0.04)" }}
+                      whileTap={{ scale: 0.99 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 26 }}
+                      className="w-full border border-white/[0.09] text-gray-400 hover:text-white text-sm font-medium py-4 rounded-2xl transition-colors"
+                    >
+                      Hacer oferta →
+                    </motion.button>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Card not available */}
+            {!isSeller && !dealDone && card.status !== "available" && (
+              <div className="w-full border border-white/[0.07] text-gray-600 text-sm font-medium py-4 rounded-2xl text-center">
+                {card.status === "hold" ? "Carta reservada" : "Carta vendida"}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Offer modal */}
+          <AnimatePresence>
+            {showOfferModal && (
+              <motion.div
+                key="offer-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+                onClick={(e) => { if (e.target === e.currentTarget) setShowOfferModal(false); }}
+              >
+                <motion.div
+                  initial={{ y: 40, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 40, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  className="w-full max-w-md bg-[#111] border border-white/[0.09] rounded-3xl p-6 space-y-5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-extrabold text-white">Hacer una oferta</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">{card.card_name}{card.set_name ? ` · ${card.set_name}` : ""}</p>
+                    </div>
+                    <button type="button" onClick={() => setShowOfferModal(false)} className="text-gray-600 hover:text-white transition-colors">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleMakeOffer} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 mb-2">
+                        Tu oferta (RD$)
+                        {card.price_usd && (
+                          <span className="text-gray-600 font-normal ml-1">
+                            — precio de lista: {formatPrice(card.price_usd)}
+                          </span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">RD$</span>
+                        <input
+                          type="number"
+                          value={offerPrice}
+                          onChange={(e) => setOfferPrice(e.target.value)}
+                          placeholder="0"
+                          min="1"
+                          step="1"
+                          autoFocus
+                          required
+                          className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3.5 pl-12 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 mb-2">
+                        Mensaje (opcional)
+                      </label>
+                      <textarea
+                        value={offerMessage}
+                        onChange={(e) => setOfferMessage(e.target.value)}
+                        placeholder="¿Algo que el vendedor deba saber?"
+                        rows={3}
+                        maxLength={280}
+                        className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3 px-4 text-white text-sm outline-none focus:ring-1 focus:ring-brand/20 transition-all resize-none placeholder:text-gray-600"
+                      />
+                    </div>
+
+                    {ctaError && <p className="text-red-400 text-xs">{ctaError}</p>}
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setShowOfferModal(false); setCtaError(""); }}
+                        className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-xl transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting || !offerPrice}
+                        className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar oferta"}
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* ── Seller ── */}
           <motion.div

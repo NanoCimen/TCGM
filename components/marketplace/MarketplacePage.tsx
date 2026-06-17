@@ -145,7 +145,7 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
       publisher: "BY THE POKÉMON COMPANY",
       status: "En vivo",
       floorPrice: formatPrice(stats.floorPrice),
-      volume: formatVolume(stats.listingCount),
+      volume: stats.soldVolume > 0 ? formatPrice(stats.soldVolume) : formatVolume(stats.listingCount) + " listados",
       bg: "from-blue-900 via-gray-900 to-black",
       img: COLLECTION_IMAGES.pokemon,
       cardImg: COLLECTION_IMAGES.pokemon,

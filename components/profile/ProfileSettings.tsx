@@ -3,13 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Check, Info, Loader2, Move, Wallet } from "lucide-react";
+import { Camera, Check, Copy, Info, Loader2, Move, Share2, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
 type Notifications = {
   marketplace: boolean;
   productUpdates: boolean;
+};
+
+type Invite = {
+  id: string;
+  code: string;
+  used_by: string | null;
+  used_at: string | null;
 };
 
 function XIcon() {
@@ -77,6 +84,7 @@ export default function ProfileSettings({
   initialAvatarUrl,
   initialBannerUrl,
   initialNotifications,
+  initialInvites,
 }: {
   userId: string;
   email: string;
@@ -84,6 +92,7 @@ export default function ProfileSettings({
   initialAvatarUrl: string | null;
   initialBannerUrl: string | null;
   initialNotifications: Notifications;
+  initialInvites: Invite[];
 }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initialDisplayName);
@@ -109,6 +118,21 @@ export default function ProfileSettings({
     const saved = localStorage.getItem(`banner_pos_${userId}`);
     if (saved) setBannerPosition(saved);
   }, [userId]);
+
+  const [invites] = useState<Invite[]>(initialInvites);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  function copyCode(code: string) {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  }
+
+  function shareOnWhatsApp(code: string) {
+    const url = `${window.location.origin}/login?ref=${code}`;
+    const text = `¡Únete a TCGRD con mi código de referido!\n\nCódigo: *${code}*\n${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  }
 
   const [notifications, setNotifications] =
     useState<Notifications>(initialNotifications);
@@ -536,6 +560,74 @@ export default function ProfileSettings({
             >
               Vincular método de pago — Próximamente
             </button>
+          </SectionCard>
+        </section>
+
+        {/* Referidos */}
+        <section>
+          <SectionTitle>Referidos</SectionTitle>
+          <SectionCard>
+            <p className="text-sm text-gray-400 mb-4">
+              Comparte estos códigos con amigos para invitarlos a TCGRD.
+            </p>
+            {invites.length === 0 ? (
+              <p className="text-sm text-gray-600">
+                Tus códigos aparecerán aquí una vez completes tu perfil.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {invites.map((invite) => (
+                  <div
+                    key={invite.id}
+                    className={`flex items-center justify-between gap-3 p-4 rounded-xl border ${
+                      invite.used_by
+                        ? "border-gray-800 bg-[#0f0f0f] opacity-60"
+                        : "border-gray-700 bg-[#141414]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-mono font-bold text-lg tracking-widest text-white">
+                        {invite.code}
+                      </span>
+                      {invite.used_by ? (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-500">
+                          Usado
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand border border-brand/20">
+                          Disponible
+                        </span>
+                      )}
+                    </div>
+
+                    {!invite.used_by && (
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => copyCode(invite.code)}
+                          title="Copiar código"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                        >
+                          {copiedCode === invite.code ? (
+                            <Check className="w-4 h-4 text-brand" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => shareOnWhatsApp(invite.code)}
+                          title="Compartir por WhatsApp"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#25D366] hover:bg-[#25D366]/10 transition-colors"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
         </section>
 

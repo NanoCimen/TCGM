@@ -10,11 +10,18 @@ export default async function PerfilPage() {
 
   if (!user) redirect("/");
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("display_name, avatar_url, banner_url")
-    .eq("id", user.id)
-    .single();
+  const [{ data: profile }, { data: invites }] = await Promise.all([
+    supabase
+      .from("users")
+      .select("display_name, avatar_url, banner_url")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("invites")
+      .select("id, code, used_by, used_at")
+      .eq("created_by", user.id)
+      .order("used_at", { ascending: true, nullsFirst: true }),
+  ]);
 
   return (
     <ProfileSettings
@@ -27,6 +34,7 @@ export default async function PerfilPage() {
         marketplace: user.user_metadata?.notif_marketplace ?? true,
         productUpdates: user.user_metadata?.notif_product_updates ?? true,
       }}
+      initialInvites={invites ?? []}
     />
   );
 }

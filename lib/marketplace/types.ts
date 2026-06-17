@@ -21,6 +21,7 @@ export interface MarketplaceCard {
 export interface MarketplaceStats {
   listingCount: number;
   floorPrice: number | null;
+  soldVolume: number;
   heroImage: string | null;
   thumbnailImage: string | null;
 }

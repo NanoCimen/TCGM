@@ -9,9 +9,11 @@ import {
   Heart,
   Home,
   Layers,
+  LogOut,
   User as UserIcon,
 } from "lucide-react";
 import NotificationsBell from "@/components/notifications/NotificationsBell";
+import { createClient } from "@/lib/supabase/client";
 
 export type DashboardNavKey =
   | "inicio"
@@ -75,6 +77,12 @@ export default function DashboardShell({
   initials: string;
   children: React.ReactNode;
 }) {
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
   return (
     <div className="min-h-screen bg-black text-white selection:bg-brand/20">
       <header className="sticky top-0 z-50 bg-black border-b border-white/5 h-16">
@@ -99,8 +107,8 @@ export default function DashboardShell({
       </header>
 
       <div className="flex">
-        <aside className="hidden md:flex flex-col w-56 lg:w-60 flex-shrink-0 border-r border-white/5 bg-[#0a0a0a] min-h-[calc(100vh-4rem)] sticky top-16 self-start py-6 px-3">
-          <nav className="space-y-1">
+        <aside className="hidden md:flex flex-col justify-between w-56 lg:w-60 flex-shrink-0 border-r border-white/5 bg-[#0a0a0a] min-h-[calc(100vh-4rem)] sticky top-16 self-start py-6 px-3">
+          <nav className="space-y-1 flex-1">
             {NAV_ITEMS.map((item) => {
               const isActive = item.key === active;
               const Icon = item.icon;
@@ -120,6 +128,14 @@ export default function DashboardShell({
               );
             })}
           </nav>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold tracking-tight text-gray-600 hover:text-red-400 hover:bg-red-950/20 transition-colors w-full mt-4"
+          >
+            <LogOut className="w-[18px] h-[18px]" strokeWidth={1.8} />
+            Cerrar sesión
+          </button>
         </aside>
 
         <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0">

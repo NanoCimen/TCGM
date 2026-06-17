@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, Mail } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) sessionStorage.setItem("tcgm_ref", ref.toUpperCase().trim());
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -39,9 +39,9 @@ export default function SuccessStep({
       </motion.div>
 
       <h2 className="text-2xl font-black tracking-tight text-white mb-1">
-        ¡Carta publicada!
+        ¡Carta guardada!
       </h2>
-      <p className="text-sm text-gray-500 mb-2">Tu carta ya está en el mercado</p>
+      <p className="text-sm text-gray-500 mb-2">Agregada a tu portafolio — publícala cuando quieras</p>
 
       {totalCards > 1 && (
         <p className="text-xs font-bold text-brand mb-6">
@@ -101,7 +101,7 @@ export default function SuccessStep({
               onClick={onReset}
               className="flex-1 py-3.5 rounded-xl border border-gray-700 text-sm font-bold text-gray-300 hover:bg-gray-900 transition-colors"
             >
-              Publicar otra carta
+              Agregar otra carta
             </button>
           </>
         )}

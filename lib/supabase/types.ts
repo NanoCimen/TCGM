@@ -1,4 +1,4 @@
-export type CardStatus = "available" | "sold" | "hold";
+export type CardStatus = "draft" | "available" | "sold" | "hold";
 
 export interface User {
   id: string;

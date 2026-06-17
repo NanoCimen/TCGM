@@ -171,7 +171,7 @@ export default function SellFlow() {
         official_image_url: state.officialImageUrl,
         price_usd: parseFloat(state.price),
         tcg_market_price: state.tcgPrice,
-        status: "available",
+        status: "draft",
         notes: state.notes.trim() || null,
         variant: state.variant,
         language: state.language,

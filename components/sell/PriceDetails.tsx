@@ -744,10 +744,10 @@ export default function PriceDetails({
         >
           {publishing ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" /> Publicando...
+              <Loader2 className="w-4 h-4 animate-spin" /> Guardando...
             </>
           ) : (
-            "Publicar carta →"
+            "Guardar en portafolio →"
           )}
         </button>
       </div>
