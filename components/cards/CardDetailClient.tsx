@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCheck, ChevronDown, Loader2, MessageCircle, Tag, X } from "lucide-react";
+import { ArrowLeft, CheckCheck, ChevronDown, Heart, Loader2, MessageCircle, Star, Tag, X } from "lucide-react";
 import { openBuyNowWhatsApp, openOfferAcceptedWhatsApp } from "@/lib/marketplace/whatsapp";
 import {
   motion,
@@ -14,7 +14,7 @@ import {
   useSpring,
   useMotionTemplate,
 } from "framer-motion";
-import { formatPrice } from "@/lib/marketplace/utils";
+import { formatPrice, USD_TO_DOP } from "@/lib/marketplace/utils";
 import { LANGUAGE_FLAG, VARIANT_BADGE_STYLES } from "@/lib/cards/constants";
 import type { TCGPriceResult } from "@/lib/api/tcggo";
 import type { CardStatus } from "@/lib/supabase/types";
@@ -281,7 +281,7 @@ export default function CardDetailClient({
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [buyConfirm, setBuyConfirm] = useState(false);
   const [offerPrice, setOfferPrice] = useState(
-    card.price_usd ? String(Math.round(card.price_usd * 0.9 * 59)) : ""
+    card.price_usd ? String(Math.round(card.price_usd * 0.9 * USD_TO_DOP)) : ""
   );
   const [offerMessage, setOfferMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -291,6 +291,94 @@ export default function CardDetailClient({
     priceUsd: number;
     isBuyNow: boolean;
   } | null>(null);
+
+  // Seller rating state
+  const [sellerRating, setSellerRating] = useState<{ avg: number | null; count: number } | null>(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewDone, setReviewDone] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/reviews?seller_id=${sellerId}`)
+      .then((r) => r.json())
+      .then((data: { avg: number | null; count: number }) => setSellerRating(data))
+      .catch(() => {});
+  }, [sellerId]);
+
+  // Contact seller state
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [sendingContact, setSendingContact] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
+
+  async function handleSendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!contactMessage.trim() || sendingContact) return;
+    setSendingContact(true);
+    try {
+      const res = await fetch("/api/contact-seller", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ card_id: card.id, seller_id: sellerId, message: contactMessage }),
+      });
+      if (res.ok) {
+        setContactSent(true);
+        setShowContactForm(false);
+        setContactMessage("");
+      }
+    } finally {
+      setSendingContact(false);
+    }
+  }
+
+  async function handleSubmitReview(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmittingReview(true);
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seller_id: sellerId, card_id: card.id, rating: reviewRating, comment: reviewComment }),
+      });
+      if (res.ok) {
+        setReviewDone(true);
+        setShowReviewForm(false);
+        setSellerRating((prev) => prev ? { avg: prev.avg, count: prev.count + 1 } : { avg: reviewRating, count: 1 });
+      }
+    } finally {
+      setSubmittingReview(false);
+    }
+  }
+
+  // Save/heart state
+  const [isSaved, setIsSaved] = useState(false);
+  const [savingToggle, setSavingToggle] = useState(false);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    fetch("/api/saved")
+      .then((r) => r.json())
+      .then((data: { saved: string[] }) => setIsSaved(data.saved.includes(card.id)))
+      .catch(() => {});
+  }, [currentUserId, card.id]);
+
+  async function toggleSave() {
+    if (!currentUserId || savingToggle) return;
+    setSavingToggle(true);
+    try {
+      const method = isSaved ? "DELETE" : "POST";
+      const res = await fetch("/api/saved", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ card_id: card.id }),
+      });
+      if (res.ok) setIsSaved(!isSaved);
+    } finally {
+      setSavingToggle(false);
+    }
+  }
 
   const isSeller = !!currentUserId && currentUserId === sellerId;
 
@@ -380,7 +468,7 @@ export default function CardDetailClient({
   async function handleMakeOffer(e: React.FormEvent) {
     e.preventDefault();
     setCtaError("");
-    const priceUsd = parseFloat(offerPrice) / 59;
+    const priceUsd = parseFloat(offerPrice) / USD_TO_DOP;
     if (!priceUsd || priceUsd <= 0) { setCtaError("Ingresa un precio válido"); return; }
     setSubmitting(true);
     try {
@@ -455,10 +543,25 @@ export default function CardDetailClient({
             <ArrowLeft className="w-4 h-4" />
             {isSeller ? "Mis cartas" : "Mercado"}
           </Link>
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/solo-logo.png" alt="TCGRD" width={26} height={26} className="h-[26px] w-[26px]" />
-            <span className="text-brand font-extrabold text-base tracking-tighter">TCGRD</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            {currentUserId && !isSeller && (
+              <button
+                type="button"
+                onClick={toggleSave}
+                disabled={savingToggle}
+                title={isSaved ? "Quitar de guardados" : "Guardar"}
+                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/[0.06] transition-colors"
+              >
+                <Heart
+                  className={`w-4.5 h-4.5 transition-colors ${isSaved ? "text-red-500 fill-red-500" : "text-gray-500"}`}
+                />
+              </button>
+            )}
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/solo-logo.png" alt="TCGRD" width={26} height={26} className="h-[26px] w-[26px]" />
+              <span className="text-brand font-extrabold text-base tracking-tighter">TCGRD</span>
+            </Link>
+          </div>
         </div>
       </motion.header>
 
@@ -737,7 +840,7 @@ export default function CardDetailClient({
                       </div>
                       {publishPrice && parseFloat(publishPrice) > 0 && (
                         <p className="text-[11px] text-gray-500 font-mono">
-                          {"~"} RD${(parseFloat(publishPrice) * 59).toLocaleString("es-DO", { maximumFractionDigits: 0 })}
+                          {"~"} {formatPrice(parseFloat(publishPrice))}
                         </p>
                       )}
                       {publishError && <p className="text-red-400 text-xs">{publishError}</p>}
@@ -935,6 +1038,42 @@ export default function CardDetailClient({
             )}
           </motion.div>
 
+          {/* Contact seller */}
+          {currentUserId && !isSeller && (
+            <motion.div custom={7.5} variants={fadeUp} initial="hidden" animate="visible" className="mb-4">
+              {contactSent ? (
+                <p className="text-[11px] text-brand text-center font-medium">Mensaje enviado al vendedor.</p>
+              ) : showContactForm ? (
+                <form onSubmit={handleSendMessage} className="space-y-2">
+                  <textarea
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    placeholder="Pregunta al vendedor sobre condición, envío, etc."
+                    rows={3}
+                    maxLength={500}
+                    autoFocus
+                    className="w-full bg-white/[0.03] border border-white/[0.07] rounded-xl py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-brand/30 focus:ring-1 focus:ring-brand/10 resize-none transition-all"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button type="button" onClick={() => { setShowContactForm(false); setContactMessage(""); }} className="text-xs text-gray-600 hover:text-white transition-colors px-3 py-1.5">Cancelar</button>
+                    <button type="submit" disabled={sendingContact || !contactMessage.trim()} className="text-xs font-bold bg-white/[0.06] text-white border border-white/[0.1] px-4 py-1.5 rounded-lg hover:bg-white/[0.1] transition-colors disabled:opacity-40">
+                      {sendingContact ? "Enviando..." : "Enviar"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowContactForm(true)}
+                  className="w-full text-xs text-gray-500 hover:text-gray-300 transition-colors py-2 flex items-center justify-center gap-1.5"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  Contactar vendedor
+                </button>
+              )}
+            </motion.div>
+          )}
+
           {/* Offer modal */}
           <AnimatePresence>
             {showOfferModal && (
@@ -1034,17 +1173,78 @@ export default function CardDetailClient({
             variants={fadeUp}
             initial="hidden"
             animate="visible"
-            className="flex items-center gap-3 px-4 py-3.5 bg-white/[0.02] border border-white/[0.06] rounded-2xl mb-9"
+            className="bg-white/[0.02] border border-white/[0.06] rounded-2xl mb-9 overflow-hidden"
           >
-            <div className="w-9 h-9 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-[11px] font-bold text-gray-400 flex-shrink-0">
-              {sellerName.substring(0, 2).toUpperCase()}
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="w-9 h-9 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-[11px] font-bold text-gray-400 flex-shrink-0">
+                {sellerName.substring(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-semibold tracking-[0.18em] uppercase text-gray-600">
+                  Vendedor
+                </p>
+                <p className="text-sm font-semibold text-white truncate">{sellerName}</p>
+              </div>
+              {sellerRating && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                  <span className="text-xs font-bold text-white">
+                    {sellerRating.avg != null ? sellerRating.avg.toFixed(1) : "—"}
+                  </span>
+                  <span className="text-[10px] text-gray-600">({sellerRating.count})</span>
+                </div>
+              )}
             </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-semibold tracking-[0.18em] uppercase text-gray-600">
-                Vendedor
-              </p>
-              <p className="text-sm font-semibold text-white truncate">{sellerName}</p>
-            </div>
+
+            {/* Review form for buyers with completed deals */}
+            {currentUserId && !isSeller && (
+              <div className="border-t border-white/[0.05] px-4 py-3">
+                {reviewDone ? (
+                  <p className="text-[11px] text-brand font-medium">Reseña enviada. ¡Gracias!</p>
+                ) : showReviewForm ? (
+                  <form onSubmit={handleSubmitReview} className="space-y-3">
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className="focus:outline-none"
+                        >
+                          <Star
+                            className={`w-5 h-5 transition-colors ${
+                              star <= reviewRating ? "text-yellow-400 fill-yellow-400" : "text-gray-700"
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder="Comentario opcional..."
+                      rows={2}
+                      maxLength={200}
+                      className="w-full bg-[#1a1a1a] border border-gray-800 rounded-lg py-2 px-3 text-xs text-white placeholder:text-gray-600 outline-none focus:border-gray-600 resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setShowReviewForm(false)} className="text-xs text-gray-500 hover:text-white transition-colors">Cancelar</button>
+                      <button type="submit" disabled={submittingReview} className="text-xs font-bold text-brand hover:underline disabled:opacity-50">
+                        {submittingReview ? "Enviando..." : "Enviar reseña"}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowReviewForm(true)}
+                    className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors"
+                  >
+                    + Dejar reseña al vendedor
+                  </button>
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* ── Accordion ── */}

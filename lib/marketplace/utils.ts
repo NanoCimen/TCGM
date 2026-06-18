@@ -1,7 +1,7 @@
 import type { CardStatus } from "@/lib/supabase/types";
 
-/** 1 USD ≈ X DOP — update here when the rate drifts */
-export const USD_TO_DOP = 59;
+/** 1 USD ≈ X DOP — set NEXT_PUBLIC_USD_TO_DOP_RATE in env to override */
+export const USD_TO_DOP = Number(process.env.NEXT_PUBLIC_USD_TO_DOP_RATE) || 59;
 
 /**
  * Convert a USD value to DOP and format as "RD$X,XXX.XX".

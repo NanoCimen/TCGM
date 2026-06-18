@@ -4,7 +4,7 @@ import {
   getMarketplaceStats,
 } from "@/lib/api/marketplace";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function HomePage() {
   const cards = await getMarketplaceCards();

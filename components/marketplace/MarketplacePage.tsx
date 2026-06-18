@@ -670,12 +670,22 @@ export default function MarketplacePage({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [user, setUser] = useState<User | null>(null);
+  const [displayedCards, setDisplayedCards] = useState<MarketplaceCard[]>(cards);
+  const [hasMore, setHasMore] = useState(cards.length === 24);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("tcgrd-theme");
+    if (saved === "light") setIsDark(false);
+  }, []);
 
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add("dark");
+      localStorage.setItem("tcgrd-theme", "dark");
     } else {
       document.documentElement.classList.remove("dark");
+      localStorage.setItem("tcgrd-theme", "light");
     }
   }, [isDark]);
 
@@ -717,16 +727,34 @@ export default function MarketplacePage({
     openAuth("login");
   }, [user, openAuth, router]);
 
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const last = displayedCards[displayedCards.length - 1];
+      const cursor = last?.created_at ?? "";
+      const res = await fetch(`/api/marketplace?cursor=${encodeURIComponent(cursor)}`);
+      if (!res.ok) return;
+      const json = (await res.json()) as { cards: MarketplaceCard[]; hasMore: boolean };
+      setDisplayedCards((prev) => [...prev, ...json.cards]);
+      setHasMore(json.hasMore);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const filteredCards = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return cards;
-    return cards.filter(
+    if (!q) return displayedCards;
+    return displayedCards.filter(
       (c) =>
         c.card_name.toLowerCase().includes(q) ||
         c.set_name?.toLowerCase().includes(q) ||
         c.seller_name.toLowerCase().includes(q)
     );
-  }, [cards, search]);
+  }, [displayedCards, search]);
+
+  const isFiltering = search.trim().length > 0;
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-brand/20">
@@ -745,6 +773,28 @@ export default function MarketplacePage({
           onCardClick={handleCardClick}
           user={user}
         />
+        {!isFiltering && hasMore && (
+          <div className="flex justify-center pb-16 -mt-12">
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="flex items-center gap-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-400 dark:hover:border-gray-500 text-sm font-bold px-8 py-3 rounded-xl transition-colors disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Cargando...
+                </>
+              ) : (
+                "Cargar más →"
+              )}
+            </button>
+          </div>
+        )}
       </main>
       <Footer />
       <AuthModal

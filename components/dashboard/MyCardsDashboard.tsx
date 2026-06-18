@@ -170,7 +170,7 @@ function OfferCard({
 
         {offer.message && (
           <p className="text-[11px] text-gray-500 italic line-clamp-2">
-            "{offer.message}"
+            &ldquo;{offer.message}&rdquo;
           </p>
         )}
 
@@ -757,7 +757,7 @@ export default function MyCardsDashboard({
               </div>
               {publishPriceInput && parseFloat(publishPriceInput) > 0 && (
                 <p className="text-[11px] text-gray-500 font-mono mt-1.5">
-                  {"~"} RD${(parseFloat(publishPriceInput) * 59).toLocaleString("es-DO", { maximumFractionDigits: 0 })}
+                  {"~"} {formatPrice(parseFloat(publishPriceInput))}
                 </p>
               )}
               {publishModalError && <p className="text-red-400 text-xs mt-1.5">{publishModalError}</p>}

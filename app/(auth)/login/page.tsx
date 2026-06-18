@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, Mail } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -48,7 +48,6 @@ export default function LoginPage() {
   return (
     <AuthLayout title="Iniciar sesion">
       <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
-        {/* Email input */}
         <div className={`group relative ${error ? "animate-shake" : ""}`}>
           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 group-focus-within:text-yap-primary transition-colors duration-300 pointer-events-none" />
           <input
@@ -87,5 +86,13 @@ export default function LoginPage() {
         </button>
       </form>
     </AuthLayout>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

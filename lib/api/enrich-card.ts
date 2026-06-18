@@ -91,24 +91,16 @@ export async function enrichCard(
   queries.push(baseQuery);
 
   for (const query of queries) {
-    console.log("[enrich-card] querying:", query);
-
     try {
       const url = `${POKEMON_TCG_API_BASE}/cards?q=${encodeURIComponent(query)}&pageSize=5&orderBy=-set.releaseDate`;
       const res = await fetch(url, { headers, next: { revalidate: 3600 } });
 
-      if (!res.ok) {
-        console.warn(`[enrich-card] API error ${res.status} for "${name}" ${number}`);
-        continue;
-      }
+      if (!res.ok) continue;
 
       const json = (await res.json()) as ApiResponse;
       const cards = json.data ?? [];
 
-      if (!cards.length) {
-        console.log(`[enrich-card] no match for: ${query}`);
-        continue;
-      }
+      if (!cards.length) continue;
 
       const exact = cards.find((c) => c.number === number) ?? cards[0];
       const variant = mapVariant(exact.rarity);
@@ -119,11 +111,6 @@ export async function enrichCard(
       // it with a potentially larger set.total that includes secret-rare slots.
       const printed = exact.set.printedTotal ?? exact.set.total;
 
-      console.log(
-        `[enrich-card] matched "${name}" ${number} → ${exact.name} (${exact.set.name}) ` +
-          `rarity="${exact.rarity ?? "unknown"}" variant="${variant}" via: ${query}`
-      );
-
       return {
         cardName: exact.name,
         setName: exact.set.name,
@@ -132,12 +119,10 @@ export async function enrichCard(
         officialImageUrl,
         confirmed: true,
       };
-    } catch (err) {
-      console.warn("[enrich-card] request error:", err);
+    } catch {
       return null;
     }
   }
 
-  console.log(`[enrich-card] no match after all attempts for "${name}" ${number}`);
   return null;
 }

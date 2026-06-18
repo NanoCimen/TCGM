@@ -92,6 +92,8 @@ function parseClaudeResult(text: string): ClaudeCardResult | null {
   }
 }
 
+const DAILY_IDENTIFY_LIMIT = 20;
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -118,6 +120,23 @@ export async function POST(request: Request) {
     if (profileError) {
       console.error("[identify-card] could not create user profile:", profileError.message);
     }
+  }
+
+  // Rate limit: max DAILY_IDENTIFY_LIMIT AI identifications per user per day
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from("usage_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("action", "identify_card")
+    .gte("created_at", startOfDay.toISOString());
+
+  if ((count ?? 0) >= DAILY_IDENTIFY_LIMIT) {
+    return NextResponse.json(
+      { error: `Límite diario de ${DAILY_IDENTIFY_LIMIT} identificaciones alcanzado. Intenta mañana.` },
+      { status: 429 }
+    );
   }
 
   let body: { image?: string };
@@ -226,6 +245,9 @@ export async function POST(request: Request) {
       enriched = true;
     }
   }
+
+  // Log usage for rate limiting (fire-and-forget, don't block response)
+  supabase.from("usage_logs").insert({ user_id: user.id, action: "identify_card" });
 
   return NextResponse.json({
     card_name: claudeResult.card_name,

@@ -71,7 +71,7 @@ export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
     )
     .eq("status", "available")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(24);
 
   if (error) {
     console.error("getMarketplaceCards:", error.message);

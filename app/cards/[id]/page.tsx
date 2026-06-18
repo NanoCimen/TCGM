@@ -1,8 +1,51 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { searchCardPrice } from "@/lib/api/tcggo";
 import CardDetailClient from "@/components/cards/CardDetailClient";
 import type { CardStatus } from "@/lib/supabase/types";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const supabase = await createClient();
+  const { data: card } = await supabase
+    .from("cards")
+    .select("card_name, set_name, image_url, official_image_url, price_usd")
+    .eq("id", params.id)
+    .maybeSingle<{
+      card_name: string;
+      set_name: string | null;
+      image_url: string | null;
+      official_image_url: string | null;
+      price_usd: number | null;
+    }>();
+
+  if (!card) return { title: "Carta | TCGRD" };
+
+  const title = `${card.card_name}${card.set_name ? ` · ${card.set_name}` : ""} | TCGRD`;
+  const description = `${card.card_name}${card.set_name ? ` de ${card.set_name}` : ""} disponible en TCGRD.${card.price_usd ? ` Precio: $${card.price_usd.toFixed(2)} USD` : ""}`;
+  const image = card.official_image_url ?? card.image_url;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      ...(image && { images: [{ url: image, width: 600, height: 840, alt: card.card_name }] }),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      ...(image && { images: [image] }),
+    },
+  };
+}
 
 type CardRow = {
   id: string;

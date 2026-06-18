@@ -206,23 +206,13 @@ async function fetchRawCards(
   if (cardNumber) params.set("card_number", cardNumber);
 
   const url = `${TCGGO_BASE}/cards?${params.toString()}`;
-  console.log("[tcggo] fetching URL:", url);
 
   try {
     const res = await fetch(url, { headers, next: { revalidate: 3600 } });
-
-    if (!res.ok) {
-      console.warn(
-        `[tcggo] search failed (${res.status}): ${name}${cardNumber ? ` #${cardNumber}` : ""}`
-      );
-      return [];
-    }
-
+    if (!res.ok) return [];
     const json = (await res.json()) as TcggoApiResponse;
-    console.log("[tcggo] raw API response:", JSON.stringify(json).slice(0, 500));
     return extractCards(json);
-  } catch (err) {
-    console.warn("[tcggo] request error:", err);
+  } catch {
     return [];
   }
 }
@@ -233,14 +223,7 @@ async function fetchCards(
   cardNumber?: string
 ): Promise<TcggoCardResult[]> {
   const rawCards = await fetchRawCards(name, pageSize, cardNumber);
-  const mapped = rawCards.map(mapCard).filter((c): c is TcggoCardResult => c != null);
-
-  console.log(
-    "[tcggo] extracted cards:",
-    mapped.map((c) => `${c.name} | price: ${c.marketPrice ?? "null"}`)
-  );
-
-  return mapped;
+  return rawCards.map(mapCard).filter((c): c is TcggoCardResult => c != null);
 }
 
 /**
@@ -272,10 +255,7 @@ export async function searchCardPrice(
   for (const attempt of attempts) {
     const rawCards = await fetchRawCards(attempt.name, 10, attempt.cardNumber);
 
-    if (!rawCards.length) {
-      console.log(`[tcggo] no results for ${attempt.label} — trying fallback`);
-      continue;
-    }
+    if (!rawCards.length) continue;
 
     const withPrice = rawCards.find((r) => {
       const tcp = parseMarketPrice(r.prices?.tcg_player?.market_price);
@@ -287,14 +267,9 @@ export async function searchCardPrice(
 
     if (!result) continue;
 
-    console.log(
-      `[tcggo] matched ${attempt.label} → ${raw.name} price=$${result.displayPrice ?? "—"}`
-    );
-
     return result;
   }
 
-  console.log(`[tcggo] all attempts exhausted for "${name}"`);
   return null;
 }
 
