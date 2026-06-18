@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, Command, Sun, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
@@ -249,9 +250,9 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-6 py-3.5 rounded-lg transition-all flex items-center gap-2 group active:scale-[0.98]"
+                <Link
+                  href={`/collection/${activeCol.id}`}
+                  className="inline-flex w-fit bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-5 py-3 rounded-lg transition-all items-center gap-2 group active:scale-[0.98]"
                 >
                   VER COLECCIÓN
                   <svg
@@ -267,7 +268,7 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
                       d="M14 5l7 7m0 0l-7 7m7-7H3"
                     />
                   </svg>
-                </button>
+                </Link>
               </div>
             </div>
           </motion.div>
@@ -348,7 +349,7 @@ function TrendingSection({
   user,
 }: {
   cards: MarketplaceCard[];
-  onCardClick: () => void;
+  onCardClick: (id: string) => void;
   user: User | null;
 }) {
   const [tab, setTab] = useState<"top" | "recent">("recent");
@@ -386,7 +387,7 @@ function TrendingSection({
           ) : (
             <button
               type="button"
-              onClick={onCardClick}
+              onClick={() => onCardClick("")}
               className="inline-block bg-brand text-black text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-[#00c64b] transition-colors"
             >
               Sé el primero en vender
@@ -447,11 +448,11 @@ function TrendingSection({
                 key={item.id}
                 role="button"
                 tabIndex={0}
-                onClick={onCardClick}
+                onClick={() => onCardClick(item.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    onCardClick();
+                    onCardClick(item.id);
                   }
                 }}
                 className="grid grid-cols-[3rem_minmax(280px,1fr)_120px_120px_120px_180px] gap-4 px-4 py-3 items-center hover:bg-gray-50/80 dark:hover:bg-[#111]/80 hover:shadow-[0_1px_3px_rgb(0,0,0,0.02)] group transition-all cursor-pointer rounded-lg dark:hover:shadow-[0_1px_3px_rgb(0,0,0,0.2)]"
@@ -529,11 +530,11 @@ function TrendingSection({
               key={item.id}
               role="button"
               tabIndex={0}
-              onClick={onCardClick}
+              onClick={() => onCardClick(item.id)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onCardClick();
+                  onCardClick(item.id);
                 }
               }}
               className="bg-white dark:bg-[#111] border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition-shadow active:scale-[0.99] cursor-pointer relative overflow-hidden"
@@ -663,6 +664,7 @@ export default function MarketplacePage({
   cards: MarketplaceCard[];
   stats: MarketplaceStats;
 }) {
+  const router = useRouter();
   const [isDark, setIsDark] = useState(true);
   const [search, setSearch] = useState("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -707,10 +709,13 @@ export default function MarketplacePage({
     setAuthModalOpen(true);
   }, []);
 
-  const handleCardClick = useCallback(() => {
-    if (user) return;
+  const handleCardClick = useCallback((id: string) => {
+    if (user) {
+      if (id) router.push(`/cards/${id}`);
+      return;
+    }
     openAuth("login");
-  }, [user, openAuth]);
+  }, [user, openAuth, router]);
 
   const filteredCards = useMemo(() => {
     const q = search.trim().toLowerCase();
