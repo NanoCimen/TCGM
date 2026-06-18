@@ -32,7 +32,6 @@ function LoginForm() {
     const supabase = createClient();
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email: trimmed,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     setLoading(false);
 
