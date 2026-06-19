@@ -13,7 +13,7 @@ export default async function PerfilPage() {
   const [{ data: profile }, { data: invites }] = await Promise.all([
     supabase
       .from("users")
-      .select("display_name, avatar_url, banner_url")
+      .select("display_name, avatar_url, banner_url, phone")
       .eq("id", user.id)
       .single(),
     supabase
@@ -28,6 +28,7 @@ export default async function PerfilPage() {
       userId={user.id}
       email={user.email ?? ""}
       initialDisplayName={profile?.display_name ?? ""}
+      initialPhone={profile?.phone ?? null}
       initialAvatarUrl={profile?.avatar_url ?? null}
       initialBannerUrl={profile?.banner_url ?? null}
       initialNotifications={{

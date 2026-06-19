@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, Ticket } from "lucide-react";
+import { ArrowRight, Loader2, Phone, Ticket } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { createClient } from "@/lib/supabase/client";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
+  const [phone, setPhone] = useState("");
   const [refCode, setRefCode] = useState("");
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -55,7 +56,7 @@ export default function OnboardingPage() {
     }
 
     const { error: upsertError } = await supabase.from("users").upsert(
-      { id: user.id, display_name: name },
+      { id: user.id, display_name: name, phone: phone.trim() || null },
       { onConflict: "id" }
     );
 
@@ -114,6 +115,21 @@ export default function OnboardingPage() {
           maxLength={40}
           className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-yap-primary rounded-2xl py-4 px-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-yap-primary/20 text-[15px] font-medium transition-all duration-300"
         />
+
+        <div className="relative group">
+          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-yap-primary transition-colors pointer-events-none" />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="WhatsApp (ej: 8091234567)"
+            maxLength={15}
+            className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-yap-primary rounded-2xl py-4 pl-11 pr-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-yap-primary/20 text-[15px] transition-all duration-300"
+          />
+        </div>
+        <p className="text-xs text-zinc-600 -mt-2 pl-1">
+          Solo se comparte con compradores / vendedores al coordinar una entrega.
+        </p>
 
         <div className="relative group">
           <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-yap-primary transition-colors pointer-events-none" />

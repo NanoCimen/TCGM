@@ -7,7 +7,7 @@ import { Check, CheckCheck, Loader2, MessageCircle, Pencil, Plus, Trash2, X } fr
 import DashboardShell, { Avatar } from "./DashboardShell";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
 import { formatPrice, USD_TO_DOP } from "@/lib/marketplace/utils";
-import { openOfferAcceptedWhatsApp } from "@/lib/marketplace/whatsapp";
+import { openOfferAcceptedBuyerWhatsApp, openOfferAcceptedWhatsApp } from "@/lib/marketplace/whatsapp";
 
 export type DashboardCard = {
   id: string;
@@ -37,8 +37,8 @@ export type OfferWithDetails = {
     official_image_url: string | null;
     price_usd: number | null;
   } | null;
-  buyer: { id: string; display_name: string | null } | null;
-  seller: { id: string; display_name: string | null } | null;
+  buyer: { id: string; display_name: string | null; phone: string | null } | null;
+  seller: { id: string; display_name: string | null; phone: string | null } | null;
 };
 
 type TabKey = "coleccion" | "ofertas-recibidas" | "ofertas-hechas" | "actividad";
@@ -232,6 +232,7 @@ function OfferCard({
                     cardName: card.card_name,
                     setName: card.set_name,
                     buyerName: offer.buyer?.display_name ?? "el comprador",
+                    buyerPhone: offer.buyer?.phone,
                     priceUsd: offer.offer_price,
                   })
                 }
@@ -263,12 +264,30 @@ function OfferCard({
           )}
 
           {offer.status === "accepted" && role === "buyer" && card && (
-            <Link
-              href={`/cards/${card.id}`}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors"
-            >
-              Ver carta
-            </Link>
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  openOfferAcceptedBuyerWhatsApp({
+                    cardName: card.card_name,
+                    setName: card.set_name,
+                    sellerName: offer.seller?.display_name ?? "el vendedor",
+                    sellerPhone: offer.seller?.phone,
+                    priceUsd: offer.offer_price,
+                  })
+                }
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 transition-colors"
+              >
+                <MessageCircle className="w-3 h-3" />
+                WhatsApp vendedor
+              </button>
+              <Link
+                href={`/cards/${card.id}`}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors"
+              >
+                Ver carta
+              </Link>
+            </>
           )}
         </div>
       </div>

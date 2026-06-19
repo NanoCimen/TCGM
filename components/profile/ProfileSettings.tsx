@@ -81,6 +81,7 @@ export default function ProfileSettings({
   userId,
   email,
   initialDisplayName,
+  initialPhone,
   initialAvatarUrl,
   initialBannerUrl,
   initialNotifications,
@@ -89,6 +90,7 @@ export default function ProfileSettings({
   userId: string;
   email: string;
   initialDisplayName: string;
+  initialPhone: string | null;
   initialAvatarUrl: string | null;
   initialBannerUrl: string | null;
   initialNotifications: Notifications;
@@ -96,6 +98,7 @@ export default function ProfileSettings({
 }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [phone, setPhone] = useState(initialPhone ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [savedToast, setSavedToast] = useState(false);
@@ -252,7 +255,7 @@ export default function ProfileSettings({
     const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: trimmed }),
+      body: JSON.stringify({ display_name: trimmed, phone: phone.trim() || null }),
     });
     const json = await res.json();
     setSavingProfile(false);
@@ -467,16 +470,34 @@ export default function ProfileSettings({
                   >
                     Nombre de usuario
                   </label>
+                  <input
+                    id="displayName"
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => {
+                      setDisplayName(e.target.value);
+                      if (profileError) setProfileError("");
+                    }}
+                    placeholder="Tu nombre"
+                    className="w-full bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="phone"
+                    className="block text-sm font-bold text-white mb-2"
+                  >
+                    WhatsApp <span className="text-gray-500 font-normal">(para coordinar entregas)</span>
+                  </label>
                   <div className="flex gap-2">
                     <input
-                      id="displayName"
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => {
-                        setDisplayName(e.target.value);
-                        if (profileError) setProfileError("");
-                      }}
-                      placeholder="Tu nombre"
+                      id="phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="8091234567"
+                      maxLength={15}
                       className="flex-1 bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all"
                     />
                     <button
@@ -491,6 +512,7 @@ export default function ProfileSettings({
                       )}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-600 mt-1.5">Solo visible para tu contraparte al cerrar un trato.</p>
                   {profileError && (
                     <p className="text-red-500 text-xs mt-2">{profileError}</p>
                   )}

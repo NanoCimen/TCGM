@@ -17,6 +17,7 @@ export async function PATCH(request: Request) {
   if (typeof body.display_name === "string") updates.display_name = body.display_name;
   if (typeof body.avatar_url === "string") updates.avatar_url = body.avatar_url;
   if (typeof body.banner_url === "string") updates.banner_url = body.banner_url;
+  if (body.phone === null || typeof body.phone === "string") updates.phone = body.phone;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

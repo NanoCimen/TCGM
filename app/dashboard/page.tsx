@@ -23,8 +23,8 @@ export default async function DashboardPage() {
     created_at,
     responded_at,
     cards ( id, card_name, set_name, image_url, official_image_url, price_usd ),
-    buyer:users!buyer_id ( id, display_name ),
-    seller:users!seller_id ( id, display_name )
+    buyer:users!buyer_id ( id, display_name, phone ),
+    seller:users!seller_id ( id, display_name, phone )
   `;
 
   const [

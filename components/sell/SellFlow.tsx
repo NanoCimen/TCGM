@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { dataUrlToBlob } from "./compressImage";
 import StepIndicator from "./StepIndicator";
@@ -13,6 +14,8 @@ import AIIdentification, {
 } from "./AIIdentification";
 import PriceDetails, { type TcgPriceResult } from "./PriceDetails";
 import SuccessStep from "./SuccessStep";
+
+type UploadStage = "idle" | "uploading" | "saving";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -44,6 +47,7 @@ export default function SellFlow() {
   const [state, setState] = useState(INITIAL_STATE);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const [uploadStage, setUploadStage] = useState<UploadStage>("idle");
 
   // Scanner + batch queue
   const [showScanner, setShowScanner] = useState(false);
@@ -107,6 +111,7 @@ export default function SellFlow() {
     if (!state.previewUrl) return;
     setPublishError("");
     setPublishing(true);
+    setUploadStage("uploading");
 
     const supabase = createClient();
     const {
@@ -134,6 +139,7 @@ export default function SellFlow() {
           `No se pudo crear tu perfil de usuario: ${profileError.message}`
         );
         setPublishing(false);
+        setUploadStage("idle");
         return;
       }
     }
@@ -153,8 +159,11 @@ export default function SellFlow() {
         "No se pudo subir la imagen. Revisa tu conexión e intenta de nuevo."
       );
       setPublishing(false);
+      setUploadStage("idle");
       return;
     }
+
+    setUploadStage("saving");
 
     const { data: publicUrl } = supabase.storage
       .from("card-images")
@@ -188,10 +197,12 @@ export default function SellFlow() {
         `No se pudo publicar la carta. ${insertError?.message ?? "Intenta de nuevo."}`
       );
       setPublishing(false);
+      setUploadStage("idle");
       return;
     }
 
     update({ cardId: inserted.id });
+    setUploadStage("idle");
     setPublishing(false);
     setStep(4);
     router.refresh();
@@ -227,6 +238,49 @@ export default function SellFlow() {
           onCaptures={handleScannerCaptures}
           onCancel={() => setShowScanner(false)}
         />
+      )}
+
+      {/* Upload progress overlay */}
+      {publishing && uploadStage !== "idle" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
+          <div className="bg-[#111] border border-gray-800 rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl">
+            {state.previewUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={state.previewUrl}
+                alt=""
+                className="w-20 h-28 object-cover rounded-xl border border-gray-700 mx-auto mb-6 shadow-xl"
+              />
+            )}
+
+            <div className="w-14 h-14 rounded-full bg-brand/10 border border-brand/30 flex items-center justify-center mx-auto mb-4">
+              <Loader2 className="w-7 h-7 text-brand animate-spin" />
+            </div>
+
+            <p className="text-base font-black text-white mb-1">
+              {uploadStage === "uploading" ? "Subiendo imagen..." : "Guardando carta..."}
+            </p>
+            <p className="text-xs text-gray-500">
+              {uploadStage === "uploading"
+                ? "Esto puede tardar unos segundos."
+                : "Casi listo, guardando en tu portafolio."}
+            </p>
+
+            {/* Progress bar */}
+            <div className="flex gap-1.5 mt-6 mx-auto w-fit">
+              <div className="h-1 w-12 rounded-full bg-brand transition-all duration-500" />
+              <div
+                className={`h-1 w-12 rounded-full transition-all duration-500 ${
+                  uploadStage === "saving" ? "bg-brand" : "bg-gray-700"
+                }`}
+              />
+            </div>
+            <div className="flex gap-4 justify-center mt-1.5">
+              <span className="text-[10px] text-gray-500">Imagen</span>
+              <span className="text-[10px] text-gray-500">Guardando</span>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="max-w-2xl mx-auto">

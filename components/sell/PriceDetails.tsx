@@ -724,7 +724,10 @@ export default function PriceDetails({
       )}
 
       {publishError && (
-        <p className="text-red-500 text-xs mt-4">{publishError}</p>
+        <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+          <p className="text-sm font-bold text-red-400">Error al publicar</p>
+          <p className="text-xs text-red-400/80 mt-0.5">{publishError}</p>
+        </div>
       )}
 
       <div className="flex gap-3 mt-8">
