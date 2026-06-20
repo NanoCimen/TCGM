@@ -8,6 +8,19 @@ import DashboardShell, { Avatar } from "./DashboardShell";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
 import { formatPrice, USD_TO_DOP } from "@/lib/marketplace/utils";
 import { openOfferAcceptedBuyerWhatsApp, openOfferAcceptedWhatsApp } from "@/lib/marketplace/whatsapp";
+import ChatPanel, { type ChatMessage } from "@/components/cards/ChatPanel";
+
+export type RawMessage = {
+  id: string;
+  card_id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  read: boolean;
+  created_at: string;
+  cards: { card_name: string; image_url: string | null } | null;
+  sender: { display_name: string | null } | null;
+};
 
 export type DashboardCard = {
   id: string;
@@ -41,7 +54,7 @@ export type OfferWithDetails = {
   seller: { id: string; display_name: string | null; phone: string | null } | null;
 };
 
-type TabKey = "coleccion" | "ofertas-recibidas" | "ofertas-hechas" | "actividad";
+type TabKey = "coleccion" | "reservadas" | "ofertas-recibidas" | "ofertas-hechas" | "mensajes" | "actividad";
 
 type PublishModalData = { cardId: string; cardName: string; priceUsd: number | null };
 type DeleteModalData = { cardId: string; cardName: string };
@@ -83,7 +96,7 @@ const OFFER_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelada",
 };
 
-function formatDOP(usd: number): string {
+export function formatDOP(usd: number): string {
   const dop = usd * USD_TO_DOP;
   return `RD$${dop.toLocaleString("es-DO", {
     minimumFractionDigits: 2,
@@ -91,7 +104,7 @@ function formatDOP(usd: number): string {
   })}`;
 }
 
-function OfferCard({
+export function OfferCard({
   offer,
   role,
   onAction,
@@ -295,6 +308,92 @@ function OfferCard({
   );
 }
 
+type Thread = {
+  cardId: string;
+  cardName: string;
+  cardImage: string | null;
+  otherUserId: string;
+  otherUserName: string;
+  messages: ChatMessage[];
+  unread: number;
+};
+
+function MensajesTab({ threads, userId }: { threads: Thread[]; userId: string }) {
+  const [activeThread, setActiveThread] = useState<Thread | null>(null);
+
+  if (threads.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <h3 className="text-xl font-extrabold text-white mb-2">Sin mensajes</h3>
+        <p className="text-sm text-gray-500">
+          Los mensajes de compradores sobre tus cartas aparecerán aquí.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl">
+      {activeThread ? (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setActiveThread(null)}
+            className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1"
+          >
+            ← Todos los mensajes
+          </button>
+          <p className="text-sm font-bold text-white">
+            {activeThread.cardName}{" "}
+            <span className="text-gray-500 font-normal">· {activeThread.otherUserName}</span>
+          </p>
+          <ChatPanel
+            cardId={activeThread.cardId}
+            otherUserId={activeThread.otherUserId}
+            otherUserName={activeThread.otherUserName}
+            currentUserId={userId}
+            initialMessages={activeThread.messages}
+          />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {threads.map((t) => {
+            const lastMsg = t.messages[0];
+            return (
+              <button
+                key={`${t.cardId}::${t.otherUserId}`}
+                type="button"
+                onClick={() => setActiveThread(t)}
+                className="w-full bg-[#111] border border-gray-800 rounded-2xl p-4 flex gap-3 hover:border-gray-700 transition-colors text-left"
+              >
+                {t.cardImage && (
+                  <div className="w-10 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-gray-900">
+                    <CardThumbnail src={t.cardImage} alt={t.cardName} className="w-full h-full" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-bold text-white truncate">{t.cardName}</p>
+                    {t.unread > 0 && (
+                      <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand text-black min-w-[18px] text-center">
+                        {t.unread}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-500 truncate">{t.otherUserName}</p>
+                  {lastMsg && (
+                    <p className="text-xs text-gray-600 truncate mt-1">{lastMsg.content}</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MyCardsDashboard({
   displayName,
   email,
@@ -303,6 +402,8 @@ export default function MyCardsDashboard({
   receivedOffers,
   madeOffers,
   offerCountByCard = {},
+  userId = "",
+  allMessages = [],
 }: {
   displayName: string;
   email: string;
@@ -311,6 +412,8 @@ export default function MyCardsDashboard({
   receivedOffers: OfferWithDetails[];
   madeOffers: OfferWithDetails[];
   offerCountByCard?: Record<string, number>;
+  userId?: string;
+  allMessages?: RawMessage[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>("coleccion");
@@ -337,6 +440,36 @@ export default function MyCardsDashboard({
   const pendingReceived = receivedOffers.filter((o) => o.status === "pending").length;
   const pendingMade = madeOffers.filter((o) => o.status === "pending").length;
 
+  // Group messages into threads: key = `${card_id}::${other_user_id}`
+  const threadMap = new Map<
+    string,
+    { cardId: string; cardName: string; cardImage: string | null; otherUserId: string; otherUserName: string; messages: ChatMessage[]; unread: number }
+  >();
+  for (const m of allMessages) {
+    const otherUserId = m.sender_id === userId ? m.receiver_id : m.sender_id;
+    const key = `${m.card_id}::${otherUserId}`;
+    if (!threadMap.has(key)) {
+      const otherName =
+        m.sender_id === userId
+          ? null // we sent it, other is receiver — no display_name in this direction
+          : (m.sender as { display_name: string | null } | null)?.display_name ?? "Usuario";
+      threadMap.set(key, {
+        cardId: m.card_id,
+        cardName: (m.cards as { card_name: string } | null)?.card_name ?? "Carta",
+        cardImage: (m.cards as { image_url: string | null } | null)?.image_url ?? null,
+        otherUserId,
+        otherUserName: otherName ?? "Usuario",
+        messages: [],
+        unread: 0,
+      });
+    }
+    const thread = threadMap.get(key)!;
+    thread.messages.push(m as ChatMessage);
+    if (m.receiver_id === userId && !m.read) thread.unread++;
+  }
+  const threads = Array.from(threadMap.values());
+  const totalUnreadMessages = threads.reduce((s, t) => s + t.unread, 0);
+
   const activityOffers = [
     ...receivedOffers.filter((o) => o.status === "accepted"),
     ...madeOffers.filter((o) => o.status === "accepted"),
@@ -355,8 +488,10 @@ export default function MyCardsDashboard({
 
   const TABS: { key: TabKey; label: string; count?: number }[] = [
     { key: "coleccion", label: "Colección" },
+    { key: "reservadas", label: "Reservadas", count: held.length || undefined },
     { key: "ofertas-recibidas", label: "Ofertas recibidas", count: pendingReceived || undefined },
     { key: "ofertas-hechas", label: "Ofertas hechas", count: pendingMade || undefined },
+    { key: "mensajes", label: "Mensajes", count: totalUnreadMessages || undefined },
     { key: "actividad", label: "Actividad" },
   ];
 
@@ -542,7 +677,7 @@ export default function MyCardsDashboard({
               />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {cards.map((card) => {
+                {cards.filter((c) => c.status !== "hold").map((card) => {
                   const pendingOffers = offerCountByCard[card.id] ?? 0;
                   return (
                     <div
@@ -656,6 +791,77 @@ export default function MyCardsDashboard({
                 })}
               </div>
             )}
+
+          </>
+        )}
+
+        {/* Reservadas */}
+        {tab === "reservadas" && (
+          <>
+            {held.length === 0 ? (
+              <EmptyState
+                title="Sin cartas reservadas"
+                subtitle="Cuando aceptes una oferta, la carta quedará reservada hasta que confirmes la entrega."
+              />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {held.map((card) => {
+                  const pendingOffers = offerCountByCard[card.id] ?? 0;
+                  return (
+                    <div
+                      key={card.id}
+                      className="bg-[#111] border border-amber-500/20 rounded-2xl p-3 flex flex-col"
+                    >
+                      <Link href={`/cards/${card.id}`} className="block relative w-full aspect-[3/4] mb-3">
+                        <CardThumbnail
+                          src={card.image_url}
+                          alt={card.card_name}
+                          className="w-full h-full rounded-lg"
+                        />
+                        {card.official_image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={card.official_image_url}
+                            alt={`${card.card_name} oficial`}
+                            className="absolute bottom-1 right-1 w-10 h-14 object-cover rounded shadow-lg border border-gray-700 bg-gray-900"
+                          />
+                        )}
+                        {pendingOffers > 0 && (
+                          <span className="absolute top-1.5 left-1.5 bg-brand text-black text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none">
+                            {pendingOffers} oferta{pendingOffers > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </Link>
+
+                      <p className="font-bold text-sm text-white truncate">{card.card_name}</p>
+                      <p className="text-[11px] font-mono text-gray-500 truncate mb-2">
+                        {card.set_name ?? "—"}
+                      </p>
+
+                      <div className="flex items-center justify-between gap-1 mb-2">
+                        <p className="font-mono text-sm font-bold text-white truncate">
+                          {card.price_usd != null ? formatDOP(card.price_usd) : "—"}
+                        </p>
+                        <span className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          Reservada
+                        </span>
+                      </div>
+
+                      <div className="flex gap-1.5 mt-auto pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleMarkSold(card.id)}
+                          className="flex-1 text-[10px] font-bold py-1.5 px-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-colors truncate"
+                        >
+                          Confirmar entrega
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 
@@ -705,6 +911,14 @@ export default function MyCardsDashboard({
               </div>
             )}
           </>
+        )}
+
+        {/* Mensajes */}
+        {tab === "mensajes" && (
+          <MensajesTab
+            threads={threads}
+            userId={userId}
+          />
         )}
 
         {/* Actividad */}

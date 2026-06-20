@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
 
 type Notification = {
   id: string;
@@ -31,6 +32,37 @@ export default function NotificationsBell({ className }: { className?: string })
   useEffect(() => {
     load();
   }, [load]);
+
+  // Real-time: subscribe to new notifications for this user
+  useEffect(() => {
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled || !session?.user?.id) return;
+      channel = supabase
+        .channel(`notifications-${session.user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${session.user.id}`,
+          },
+          (payload) => {
+            setItems((prev) => [payload.new as Notification, ...prev]);
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
 
   async function markAllRead() {
     const hasUnread = items.some((n) => !n.read);

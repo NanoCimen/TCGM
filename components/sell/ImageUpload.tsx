@@ -32,11 +32,13 @@ export default function ImageUpload({
   onImageReady,
   onContinue,
   onOpenScanner,
+  onManual,
 }: {
   previewUrl: string | null;
   onImageReady: (dataUrl: string) => void;
   onContinue: () => void;
   onOpenScanner: () => void;
+  onManual: () => void;
 }) {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
@@ -74,6 +76,14 @@ export default function ImageUpload({
       return;
     }
     onContinue();
+  }
+
+  function handleManual() {
+    if (!numberConfirmed) {
+      setShowNumberWarning(true);
+      return;
+    }
+    onManual();
   }
 
   return (
@@ -137,26 +147,36 @@ export default function ImageUpload({
           )}
 
           <div
-            className={`flex flex-col sm:flex-row gap-3 w-full max-w-sm ${
+            className={`flex flex-col gap-3 w-full max-w-sm ${
               showNumberWarning ? "mt-0" : "mt-3"
             }`}
           >
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={processing}
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-gray-700 text-sm font-bold text-gray-300 hover:bg-gray-900 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Cambiar foto
+              </button>
+              <button
+                type="button"
+                onClick={handleContinue}
+                disabled={processing}
+                className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50"
+              >
+                Analizar con IA →
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => galleryInputRef.current?.click()}
+              onClick={handleManual}
               disabled={processing}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-gray-700 text-sm font-bold text-gray-300 hover:bg-gray-900 transition-colors disabled:opacity-50"
+              className="w-full py-2.5 rounded-xl border border-gray-800 text-xs font-bold text-gray-500 hover:text-gray-300 hover:border-gray-700 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className="w-4 h-4" />
-              Cambiar foto
-            </button>
-            <button
-              type="button"
-              onClick={handleContinue}
-              disabled={processing}
-              className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50"
-            >
-              Continuar →
+              Ingresar datos manualmente
             </button>
           </div>
         </div>

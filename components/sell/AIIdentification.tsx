@@ -46,6 +46,7 @@ export default function AIIdentification({
   cardNumber,
   confidence,
   identified,
+  isManual = false,
   enriched,
   variant,
   language,
@@ -62,6 +63,7 @@ export default function AIIdentification({
   cardNumber: string;
   confidence: Confidence | null;
   identified: boolean;
+  isManual?: boolean;
   enriched: boolean;
   variant: string;
   language: string;
@@ -147,9 +149,9 @@ export default function AIIdentification({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
           <h2 className="text-xl font-black tracking-tight text-white">
-            Resultado de la IA
+            {isManual ? "Datos de la carta" : "Resultado de la IA"}
           </h2>
-          {confidence && (
+          {!isManual && confidence && (
             <span
               className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border ${CONFIDENCE_BADGE[confidence].classes}`}
             >
@@ -158,7 +160,7 @@ export default function AIIdentification({
           )}
         </div>
 
-        {showLowWarning && (
+        {!isManual && showLowWarning && (
           <div className="flex items-start gap-3 bg-amber-950/40 border border-amber-900 rounded-xl p-4 mb-5">
             <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-300 leading-relaxed">
@@ -208,25 +210,27 @@ export default function AIIdentification({
         </div>
 
         {/* Enrichment status badge */}
-        <div
-          className={`flex items-center gap-2 mt-4 px-3 py-2 rounded-lg text-xs font-semibold border ${
-            enriched
-              ? "bg-green-900/25 border-green-800 text-green-400"
-              : "bg-amber-900/25 border-amber-900 text-amber-400"
-          }`}
-        >
-          {enriched ? (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-              Carta verificada en base de datos
-            </>
-          ) : (
-            <>
-              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-              Datos aproximados — verifica el set
-            </>
-          )}
-        </div>
+        {!isManual && (
+          <div
+            className={`flex items-center gap-2 mt-4 px-3 py-2 rounded-lg text-xs font-semibold border ${
+              enriched
+                ? "bg-green-900/25 border-green-800 text-green-400"
+                : "bg-amber-900/25 border-amber-900 text-amber-400"
+            }`}
+          >
+            {enriched ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                Carta verificada en base de datos
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                Datos aproximados — verifica el set
+              </>
+            )}
+          </div>
+        )}
 
         {/* Variant selector */}
         <div className="mt-5">

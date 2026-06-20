@@ -26,6 +26,7 @@ const INITIAL_STATE = {
   cardNumber: "",
   confidence: null as Confidence | null,
   identified: false,
+  isManual: false,
   enriched: false,
   variant: "Regular",
   language: "EN",
@@ -76,6 +77,11 @@ export default function SellFlow() {
     setCardQueue(previewUrls);
     setQueueIndex(0);
     setState({ ...INITIAL_STATE, previewUrl: previewUrls[0] });
+    setStep(2);
+  }
+
+  function handleManualEntry() {
+    setState((s) => ({ ...s, identified: true, isManual: true }));
     setStep(2);
   }
 
@@ -299,6 +305,7 @@ export default function SellFlow() {
             onImageReady={handleImageReady}
             onContinue={() => setStep(2)}
             onOpenScanner={() => setShowScanner(true)}
+            onManual={handleManualEntry}
           />
         )}
 
@@ -310,6 +317,7 @@ export default function SellFlow() {
             cardNumber={state.cardNumber}
             confidence={state.confidence}
             identified={state.identified}
+            isManual={state.isManual}
             enriched={state.enriched}
             variant={state.variant}
             language={state.language}

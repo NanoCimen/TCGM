@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCheck, ChevronDown, Heart, Loader2, MessageCircle, Star, Tag, X } from "lucide-react";
-import { openBuyNowWhatsApp, openOfferAcceptedWhatsApp } from "@/lib/marketplace/whatsapp";
+import { openBuyNowWhatsApp } from "@/lib/marketplace/whatsapp";
+import ChatPanel, { type ChatMessage } from "./ChatPanel";
 import {
   motion,
   AnimatePresence,
@@ -248,6 +249,7 @@ export default function CardDetailClient({
   existingOffer,
   lastSaleUsd,
   livePrice,
+  initialMessages = [],
 }: {
   card: CardDetailData;
   sellerId: string;
@@ -256,6 +258,7 @@ export default function CardDetailClient({
   existingOffer: { id: string; offer_price: number } | null;
   lastSaleUsd: number | null;
   livePrice: TCGPriceResult | null;
+  initialMessages?: ChatMessage[];
 }) {
   const router = useRouter();
   const [photoTab, setPhotoTab] = useState<"oficial" | "real">(
@@ -306,32 +309,6 @@ export default function CardDetailClient({
       .then((data: { avg: number | null; count: number }) => setSellerRating(data))
       .catch(() => {});
   }, [sellerId]);
-
-  // Contact seller state
-  const [showContactForm, setShowContactForm] = useState(false);
-  const [contactMessage, setContactMessage] = useState("");
-  const [sendingContact, setSendingContact] = useState(false);
-  const [contactSent, setContactSent] = useState(false);
-
-  async function handleSendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    if (!contactMessage.trim() || sendingContact) return;
-    setSendingContact(true);
-    try {
-      const res = await fetch("/api/contact-seller", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ card_id: card.id, seller_id: sellerId, message: contactMessage }),
-      });
-      if (res.ok) {
-        setContactSent(true);
-        setShowContactForm(false);
-        setContactMessage("");
-      }
-    } finally {
-      setSendingContact(false);
-    }
-  }
 
   async function handleSubmitReview(e: React.FormEvent) {
     e.preventDefault();
@@ -1038,39 +1015,16 @@ export default function CardDetailClient({
             )}
           </motion.div>
 
-          {/* Contact seller */}
+          {/* Chat with seller */}
           {currentUserId && !isSeller && (
-            <motion.div custom={7.5} variants={fadeUp} initial="hidden" animate="visible" className="mb-4">
-              {contactSent ? (
-                <p className="text-[11px] text-brand text-center font-medium">Mensaje enviado al vendedor.</p>
-              ) : showContactForm ? (
-                <form onSubmit={handleSendMessage} className="space-y-2">
-                  <textarea
-                    value={contactMessage}
-                    onChange={(e) => setContactMessage(e.target.value)}
-                    placeholder="Pregunta al vendedor sobre condición, envío, etc."
-                    rows={3}
-                    maxLength={500}
-                    autoFocus
-                    className="w-full bg-white/[0.03] border border-white/[0.07] rounded-xl py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-brand/30 focus:ring-1 focus:ring-brand/10 resize-none transition-all"
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => { setShowContactForm(false); setContactMessage(""); }} className="text-xs text-gray-600 hover:text-white transition-colors px-3 py-1.5">Cancelar</button>
-                    <button type="submit" disabled={sendingContact || !contactMessage.trim()} className="text-xs font-bold bg-white/[0.06] text-white border border-white/[0.1] px-4 py-1.5 rounded-lg hover:bg-white/[0.1] transition-colors disabled:opacity-40">
-                      {sendingContact ? "Enviando..." : "Enviar"}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowContactForm(true)}
-                  className="w-full text-xs text-gray-500 hover:text-gray-300 transition-colors py-2 flex items-center justify-center gap-1.5"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  Contactar vendedor
-                </button>
-              )}
+            <motion.div custom={7.5} variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
+              <ChatPanel
+                cardId={card.id}
+                otherUserId={sellerId}
+                otherUserName={sellerName}
+                currentUserId={currentUserId}
+                initialMessages={initialMessages}
+              />
             </motion.div>
           )}
 

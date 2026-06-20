@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { searchCardPrice } from "@/lib/api/tcggo";
 import CardDetailClient from "@/components/cards/CardDetailClient";
 import type { CardStatus } from "@/lib/supabase/types";
+import type { ChatMessage } from "@/components/cards/ChatPanel";
 
 export async function generateMetadata({
   params,
@@ -140,6 +141,20 @@ export default async function CardDetailPage({
     existingOffer = data ?? null;
   }
 
+  // Fetch initial chat messages for buyer↔seller thread
+  let initialMessages: ChatMessage[] = [];
+  if (user && user.id !== card.seller_id) {
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id, sender_id, receiver_id, content, read, created_at")
+      .eq("card_id", card.id)
+      .or(
+        `and(sender_id.eq.${user.id},receiver_id.eq.${card.seller_id}),and(sender_id.eq.${card.seller_id},receiver_id.eq.${user.id})`
+      )
+      .order("created_at", { ascending: true });
+    initialMessages = (msgs ?? []) as ChatMessage[];
+  }
+
   const seller = Array.isArray(card.users) ? card.users[0] : card.users;
 
   return (
@@ -151,6 +166,7 @@ export default async function CardDetailPage({
       existingOffer={existingOffer}
       lastSaleUsd={lastSaleRow?.price_usd ?? null}
       livePrice={livePrice}
+      initialMessages={initialMessages}
     />
   );
 }

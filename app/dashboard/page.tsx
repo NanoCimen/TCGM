@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import MyCardsDashboard, {
   type DashboardCard,
   type OfferWithDetails,
+  type RawMessage,
 } from "@/components/dashboard/MyCardsDashboard";
 
 export default async function DashboardPage() {
@@ -33,6 +34,7 @@ export default async function DashboardPage() {
     { data: receivedOffers },
     { data: madeOffers },
     { data: pendingOfferCounts },
+    { data: allMessages },
   ] = await Promise.all([
     supabase
       .from("users")
@@ -61,6 +63,14 @@ export default async function DashboardPage() {
       .select("card_id")
       .eq("seller_id", user.id)
       .eq("status", "pending"),
+    supabase
+      .from("messages")
+      .select(
+        "id, card_id, sender_id, receiver_id, content, read, created_at, cards:card_id ( card_name, image_url ), sender:sender_id ( display_name )"
+      )
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .order("created_at", { ascending: false })
+      .limit(300),
   ]);
 
   // Build a map of cardId → pending offer count
@@ -79,6 +89,8 @@ export default async function DashboardPage() {
       receivedOffers={(receivedOffers ?? []) as unknown as OfferWithDetails[]}
       madeOffers={(madeOffers ?? []) as unknown as OfferWithDetails[]}
       offerCountByCard={offerCountByCard}
+      userId={user.id}
+      allMessages={(allMessages ?? []) as unknown as RawMessage[]}
     />
   );
 }
