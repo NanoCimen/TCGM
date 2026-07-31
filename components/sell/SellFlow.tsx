@@ -73,10 +73,6 @@ export default function SellFlow() {
     setStep(2);
   }
 
-  function handleManualEntry() {
-    setStep(2);
-  }
-
   const handleTcgResult = useCallback(
     (result: TcgPriceResult) => {
       update({
@@ -281,7 +277,6 @@ export default function SellFlow() {
             onImageReady={handleImageReady}
             onContinue={() => setStep(2)}
             onOpenScanner={() => setShowScanner(true)}
-            onManual={handleManualEntry}
           />
         )}
 

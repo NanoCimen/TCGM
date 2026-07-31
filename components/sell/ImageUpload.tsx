@@ -32,13 +32,11 @@ export default function ImageUpload({
   onImageReady,
   onContinue,
   onOpenScanner,
-  onManual,
 }: {
   previewUrl: string | null;
   onImageReady: (dataUrl: string) => void;
   onContinue: () => void;
   onOpenScanner: () => void;
-  onManual: () => void;
 }) {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
@@ -76,14 +74,6 @@ export default function ImageUpload({
       return;
     }
     onContinue();
-  }
-
-  function handleManual() {
-    if (!numberConfirmed) {
-      setShowNumberWarning(true);
-      return;
-    }
-    onManual();
   }
 
   return (
@@ -170,14 +160,6 @@ export default function ImageUpload({
                 Continuar →
               </button>
             </div>
-            <button
-              type="button"
-              onClick={handleManual}
-              disabled={processing}
-              className="w-full py-2.5 rounded-xl border border-gray-800 text-xs font-bold text-gray-500 hover:text-gray-300 hover:border-gray-700 transition-colors disabled:opacity-50"
-            >
-              Ingresar datos manualmente
-            </button>
           </div>
         </div>
       ) : (
