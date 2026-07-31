@@ -92,7 +92,7 @@ export default function ImageUpload({
         Sube tu carta
       </h2>
       <p className="text-sm text-gray-500 text-center mb-6">
-        Escanea o sube una foto clara de tu carta para identificarla con IA
+        Escanea o sube una foto clara de tu carta
       </p>
 
       <input
@@ -167,7 +167,7 @@ export default function ImageUpload({
                 disabled={processing}
                 className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50"
               >
-                Analizar con IA →
+                Continuar →
               </button>
             </div>
             <button

@@ -8,10 +8,7 @@ import { dataUrlToBlob } from "./compressImage";
 import StepIndicator from "./StepIndicator";
 import CameraScanner from "./CameraScanner";
 import ImageUpload from "./ImageUpload";
-import AIIdentification, {
-  type Confidence,
-  type IdentifyResult,
-} from "./AIIdentification";
+import AIIdentification from "./AIIdentification";
 import PriceDetails, { type TcgPriceResult } from "./PriceDetails";
 import SuccessStep from "./SuccessStep";
 
@@ -24,10 +21,6 @@ const INITIAL_STATE = {
   cardName: "",
   setName: "",
   cardNumber: "",
-  confidence: null as Confidence | null,
-  identified: false,
-  isManual: false,
-  enriched: false,
   variant: "Regular",
   language: "EN",
   tcgPrice: null as number | null,
@@ -81,25 +74,8 @@ export default function SellFlow() {
   }
 
   function handleManualEntry() {
-    setState((s) => ({ ...s, identified: true, isManual: true }));
     setStep(2);
   }
-
-  const handleIdentified = useCallback((result: IdentifyResult) => {
-    setState((s) => ({
-      ...s,
-      cardName: result.card_name ?? s.cardName,
-      setName: result.set_name ?? s.setName,
-      cardNumber: result.card_number ?? s.cardNumber,
-      confidence: result.confidence,
-      identified: true,
-      enriched: result.enriched ?? false,
-      ...(result.variant ? { variant: result.variant } : {}),
-      ...(result.official_image_url
-        ? { officialImageUrl: result.official_image_url }
-        : {}),
-    }));
-  }, []);
 
   const handleTcgResult = useCallback(
     (result: TcgPriceResult) => {
@@ -315,10 +291,6 @@ export default function SellFlow() {
             cardName={state.cardName}
             setName={state.setName}
             cardNumber={state.cardNumber}
-            confidence={state.confidence}
-            identified={state.identified}
-            isManual={state.isManual}
-            enriched={state.enriched}
             variant={state.variant}
             language={state.language}
             onFieldsChange={(fields) =>
@@ -332,7 +304,6 @@ export default function SellFlow() {
                 }),
               })
             }
-            onIdentified={handleIdentified}
             onVariantChange={(variant) =>
               update({
                 variant,
