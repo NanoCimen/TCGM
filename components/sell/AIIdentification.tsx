@@ -1,9 +1,8 @@
 "use client";
 
-import {
-  VARIANTS,
-  LANGUAGES,
-} from "@/lib/cards/constants";
+import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { VARIANTS, LANGUAGES } from "@/lib/cards/constants";
 
 export type Confidence = "high" | "medium" | "low";
 
@@ -17,6 +16,14 @@ export type IdentifyResult = {
   enriched?: boolean;
 };
 
+type SearchResult = {
+  id: string;
+  name: string;
+  number: string;
+  set: { name: string; printedTotal: number };
+  images: { small: string; large: string };
+};
+
 const FIELD_CLASS =
   "w-full bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all";
 
@@ -28,6 +35,7 @@ export default function AIIdentification({
   variant,
   language,
   onFieldsChange,
+  onOfficialImageUrl,
   onVariantChange,
   onLanguageChange,
   onConfirm,
@@ -44,11 +52,72 @@ export default function AIIdentification({
     setName?: string;
     cardNumber?: string;
   }) => void;
+  onOfficialImageUrl: (url: string | null) => void;
   onVariantChange: (variant: string) => void;
   onLanguageChange: (language: string) => void;
   onConfirm: () => void;
   onBack: () => void;
 }) {
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [noResults, setNoResults] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (cardName.length < 2) {
+      setResults([]);
+      setNoResults(false);
+      setDropdownOpen(false);
+      setSearching(false);
+      return;
+    }
+
+    // Show spinner immediately so noResults hides while the user is still typing
+    setSearching(true);
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/pokemon-search?q=${encodeURIComponent(cardName)}`
+        );
+        const json = (await res.json()) as { data: SearchResult[] };
+        const data = (json.data ?? []).slice(0, 8);
+        setResults(data);
+        setNoResults(data.length === 0);
+        setDropdownOpen(data.length > 0);
+      } catch {
+        setResults([]);
+        setNoResults(false);
+        setDropdownOpen(false);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [cardName]);
+
+  function handleSelect(result: SearchResult) {
+    const fullNumber =
+      result.number && result.set?.printedTotal
+        ? `${result.number}/${result.set.printedTotal}`
+        : result.number;
+    onFieldsChange({
+      cardName: result.name,
+      setName: result.set?.name ?? "",
+      cardNumber: fullNumber,
+    });
+    onOfficialImageUrl(result.images?.large ?? null);
+    setDropdownOpen(false);
+    setResults([]);
+    setNoResults(false);
+  }
+
   return (
     <div className="flex flex-col md:flex-row gap-8">
       {/* Photo */}
@@ -70,18 +139,75 @@ export default function AIIdentification({
         </div>
 
         <div className="space-y-4">
+          {/* Card name with live search */}
           <div>
             <label className="block text-sm font-bold text-white mb-2">
               Nombre de la carta
             </label>
-            <input
-              type="text"
-              value={cardName}
-              onChange={(e) => onFieldsChange({ cardName: e.target.value })}
-              placeholder="Ej: Charizard ex"
-              className={FIELD_CLASS}
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={cardName}
+                onChange={(e) => onFieldsChange({ cardName: e.target.value })}
+                onBlur={() =>
+                  setTimeout(() => setDropdownOpen(false), 150)
+                }
+                placeholder="Ej: Charizard ex"
+                className={FIELD_CLASS}
+                autoComplete="off"
+              />
+              {searching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 animate-spin pointer-events-none" />
+              )}
+              {dropdownOpen && results.length > 0 && (
+                <ul className="absolute z-20 mt-1 w-full bg-[#111] border border-gray-800 rounded-xl shadow-xl overflow-y-auto max-h-72">
+                  {results.map((result) => {
+                    const displayNumber =
+                      result.number && result.set?.printedTotal
+                        ? `${result.number}/${result.set.printedTotal}`
+                        : result.number;
+                    return (
+                      <li key={result.id}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleSelect(result)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-800/70 transition-colors"
+                        >
+                          {result.images?.small ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={result.images.small}
+                              alt=""
+                              className="w-8 h-11 object-contain rounded flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-11 bg-gray-800 rounded flex-shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {result.name}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {result.set?.name}
+                              {displayNumber ? ` · ${displayNumber}` : ""}
+                            </p>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            {noResults && !dropdownOpen && cardName.length >= 2 && !searching && (
+              <p className="mt-1.5 text-xs text-gray-500">
+                No encontramos esa carta, puedes escribirla manualmente.
+              </p>
+            )}
           </div>
+
+          {/* Set */}
           <div>
             <label className="block text-sm font-bold text-white mb-2">
               Set
@@ -94,6 +220,8 @@ export default function AIIdentification({
               className={FIELD_CLASS}
             />
           </div>
+
+          {/* Card number */}
           <div>
             <label className="block text-sm font-bold text-white mb-2">
               Número de carta

@@ -304,6 +304,7 @@ export default function SellFlow() {
                 }),
               })
             }
+            onOfficialImageUrl={(url) => update({ officialImageUrl: url })}
             onVariantChange={(variant) =>
               update({
                 variant,
