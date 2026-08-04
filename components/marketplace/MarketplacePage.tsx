@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Command, Sun, Moon } from "lucide-react";
+import { Search, Command, Sun, Moon, Clock, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -138,6 +138,7 @@ function Navbar({
 
 function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   const collections = [
     {
@@ -250,25 +251,48 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
                   </div>
                 </div>
 
-                <Link
-                  href={`/collection/${activeCol.id}`}
-                  className="inline-flex w-fit bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-5 py-3 rounded-lg transition-all items-center gap-2 group active:scale-[0.98]"
-                >
-                  VER COLECCIÓN
-                  <svg
-                    className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {activeCol.status === "En vivo" ? (
+                  <Link
+                    href={`/collection/${activeCol.id}`}
+                    className="inline-flex w-fit bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-5 py-3 rounded-lg transition-all items-center gap-2 group active:scale-[0.98]"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M14 5l7 7m0 0l-7 7m7-7H3"
-                    />
-                  </svg>
-                </Link>
+                    VER COLECCIÓN
+                    <svg
+                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M14 5l7 7m0 0l-7 7m7-7H3"
+                      />
+                    </svg>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setComingSoonOpen(true)}
+                    className="inline-flex w-fit bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-5 py-3 rounded-lg transition-all items-center gap-2 group active:scale-[0.98]"
+                  >
+                    VER COLECCIÓN
+                    <svg
+                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M14 5l7 7m0 0l-7 7m7-7H3"
+                      />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
@@ -318,6 +342,65 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
           );
         })}
       </div>
+
+      <AnimatePresence>
+        {comingSoonOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.button
+              type="button"
+              aria-label="Cerrar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              onClick={() => setComingSoonOpen(false)}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="coming-soon-title"
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => setComingSoonOpen(false)}
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+                aria-label="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                <Clock className="h-5 w-5" strokeWidth={2} />
+              </div>
+
+              <h2
+                id="coming-soon-title"
+                className="text-lg font-black tracking-tight text-white"
+              >
+                Próximamente
+              </h2>
+              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+                Esta colección todavía no está disponible. Estamos trabajando
+                para traerla pronto al mercado.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setComingSoonOpen(false)}
+                className="mt-6 w-full rounded-xl bg-brand px-4 py-3 text-sm font-bold text-black transition-colors hover:bg-[#00c64b]"
+              >
+                Entendido
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
@@ -669,6 +752,8 @@ export default function MarketplacePage({
   const [search, setSearch] = useState("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authInitialForgotPassword, setAuthInitialForgotPassword] = useState(false);
+  const [authInitialError, setAuthInitialError] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [displayedCards, setDisplayedCards] = useState<MarketplaceCard[]>(cards);
   const [hasMore, setHasMore] = useState(cards.length === 24);
@@ -708,14 +793,39 @@ export default function MarketplacePage({
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "INITIAL_SESSION") return;
       setUser(session?.user ?? null);
-      if (session?.user) setAuthModalOpen(false);
+      // Give AuthModal time to show its "logged in" success message first.
+      if (session?.user) setTimeout(() => setAuthModalOpen(false), 1600);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // Supabase forwards expired/used recovery links here as either a
+  // `#error=...` hash (Site URL fallback) or, via our /auth/callback route,
+  // a `?authError=reset_expired` query param — surface both.
+  useEffect(() => {
+    const hash = window.location.hash;
+    const authError = new URLSearchParams(window.location.search).get("authError");
+    const isResetExpired =
+      authError === "reset_expired" ||
+      hash.includes("error=access_denied") ||
+      hash.includes("error_code=otp_expired");
+
+    if (!isResetExpired) return;
+
+    setAuthMode("login");
+    setAuthInitialForgotPassword(true);
+    setAuthInitialError(
+      "El link para restablecer tu contraseña expiró o ya fue usado. Solicita uno nuevo."
+    );
+    setAuthModalOpen(true);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const openAuth = useCallback((mode: AuthMode) => {
     setAuthMode(mode);
+    setAuthInitialForgotPassword(false);
+    setAuthInitialError("");
     setAuthModalOpen(true);
   }, []);
 
@@ -802,6 +912,8 @@ export default function MarketplacePage({
         onClose={() => setAuthModalOpen(false)}
         mode={authMode}
         isDark={isDark}
+        initialForgotPassword={authInitialForgotPassword}
+        initialError={authInitialError}
       />
     </div>
   );

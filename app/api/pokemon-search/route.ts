@@ -8,10 +8,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: [] });
   }
 
-  // Use quoted phrase for multi-word, wildcard for single word
+  // Escape apostrophes for the upstream Lucene-style parser (unescaped
+  // apostrophes inside a quoted phrase intermittently 500 on their end,
+  // e.g. searching "Ethan's Magcargo").
+  const escaped = q.replace(/'/g, "\\'");
   const nameQuery = q.includes(" ")
-    ? `name:"${q}"`
-    : `name:${q}*`;
+    ? `name:"${escaped}"`
+    : `name:${escaped}*`;
 
   const url = new URL("https://api.pokemontcg.io/v2/cards");
   url.searchParams.set("q", nameQuery);
@@ -19,17 +22,31 @@ export async function GET(request: Request) {
   url.searchParams.set("select", "id,name,number,set,images,rarity");
   url.searchParams.set("orderBy", "-set.releaseDate");
 
-  const res = await fetch(url.toString(), {
-    headers: process.env.POKEMON_TCG_API_KEY
-      ? { "X-Api-Key": process.env.POKEMON_TCG_API_KEY }
-      : {},
-    next: { revalidate: 3600 },
-  });
+  const headers: Record<string, string> = process.env.POKEMON_TCG_API_KEY
+    ? { "X-Api-Key": process.env.POKEMON_TCG_API_KEY }
+    : {};
 
-  if (!res.ok) {
-    return NextResponse.json({ data: [], error: "API unavailable" }, { status: 502 });
+  // The upstream API intermittently 500s on otherwise-valid queries — retry
+  // a couple of times before giving up.
+  const MAX_ATTEMPTS = 4;
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const res = await fetch(url.toString(), {
+      headers,
+      next: { revalidate: 3600 },
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      return NextResponse.json({ data: json.data ?? [] });
+    }
+
+    lastStatus = res.status;
+    if (attempt < MAX_ATTEMPTS - 1) await new Promise((r) => setTimeout(r, 300));
   }
 
-  const json = await res.json();
-  return NextResponse.json({ data: json.data ?? [] });
+  return NextResponse.json(
+    { data: [], error: "API unavailable" },
+    { status: lastStatus >= 500 ? 502 : lastStatus }
+  );
 }

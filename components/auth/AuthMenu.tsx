@@ -6,6 +6,7 @@ import { CircleUser } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import SignOutConfirmModal from "@/components/auth/SignOutConfirmModal";
 
 type AuthMenuProps = {
   isDark: boolean;
@@ -21,6 +22,8 @@ export default function AuthMenu({
   onSelectRegister,
 }: AuthMenuProps) {
   const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,10 +57,16 @@ export default function AuthMenu({
     onSelectRegister();
   }
 
-  async function handleSignOut() {
+  function requestSignOut() {
     setOpen(false);
+    setConfirmOpen(true);
+  }
+
+  async function confirmSignOut() {
+    setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
+    window.location.reload();
   }
 
   const itemClass = `w-full text-left px-4 py-3 rounded-xl text-sm font-bold tracking-tight transition-colors ${
@@ -114,7 +123,7 @@ export default function AuthMenu({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={handleSignOut}
+                    onClick={requestSignOut}
                     className={itemClass}
                   >
                     Cerrar sesión
@@ -144,6 +153,13 @@ export default function AuthMenu({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <SignOutConfirmModal
+        open={confirmOpen}
+        loading={signingOut}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirmSignOut}
+      />
     </div>
   );
 }

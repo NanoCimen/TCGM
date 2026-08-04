@@ -24,6 +24,8 @@ type AuthModalProps = {
   onClose: () => void;
   mode: AuthMode;
   isDark: boolean;
+  initialForgotPassword?: boolean;
+  initialError?: string;
 };
 
 type RegisterStep = "email" | "otp" | "terms" | "password" | "success";
@@ -67,6 +69,8 @@ export default function AuthModal({
   onClose,
   mode,
   isDark,
+  initialForgotPassword = false,
+  initialError = "",
 }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,6 +86,9 @@ export default function AuthModal({
   );
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
   const resetState = useCallback(() => {
     setEmail("");
@@ -96,6 +103,9 @@ export default function AuthModal({
     setOauthLoading(null);
     setError("");
     setResendCooldown(0);
+    setForgotPassword(false);
+    setForgotSent(false);
+    setLoginSuccess(false);
   }, []);
 
   useEffect(() => {
@@ -104,11 +114,14 @@ export default function AuthModal({
       return;
     }
     setRegisterStep("email");
-    setError("");
+    setError(initialError);
     setOtp("");
     setPassword("");
     setConfirmPassword("");
-  }, [isOpen, mode, resetState]);
+    setForgotPassword(initialForgotPassword);
+    setForgotSent(false);
+    setLoginSuccess(false);
+  }, [isOpen, mode, resetState, initialForgotPassword, initialError]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -184,7 +197,7 @@ export default function AuthModal({
       return;
     }
 
-    onClose();
+    setLoginSuccess(true);
   }
 
   async function handleRegisterEmailSubmit(e: React.FormEvent) {
@@ -271,6 +284,34 @@ export default function AuthModal({
     setRegisterStep("success");
   }
 
+  async function handleForgotPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      setError("Ingresa un email valido");
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      trimmed,
+      {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      }
+    );
+    setLoading(false);
+
+    if (resetError) {
+      setError(resetError.message);
+      return;
+    }
+
+    setForgotSent(true);
+  }
+
   async function handleOAuth(provider: "google" | "apple") {
     setError("");
     setOauthLoading(provider);
@@ -287,6 +328,11 @@ export default function AuthModal({
 
   function handleBack() {
     setError("");
+    if (mode === "login" && forgotPassword) {
+      setForgotPassword(false);
+      setForgotSent(false);
+      return;
+    }
     if (registerStep === "otp") {
       setOtp("");
       setRegisterStep("email");
@@ -298,17 +344,22 @@ export default function AuthModal({
   }
 
   const showBack =
-    mode === "register" &&
-    ["otp", "terms", "password"].includes(registerStep);
+    (mode === "login" && forgotPassword) ||
+    (mode === "register" &&
+      ["otp", "terms", "password"].includes(registerStep));
 
   const showLogo =
-    mode === "login" ||
+    (mode === "login" && !forgotPassword && !loginSuccess) ||
     registerStep === "email" ||
     registerStep === "success";
 
   const title =
     mode === "login"
-      ? "Iniciar sesión"
+      ? forgotPassword
+        ? "Recuperar contraseña"
+        : loginSuccess
+          ? "¡Éxito!"
+          : "Iniciar sesión"
       : registerStep === "email"
         ? "Registrar"
         : registerStep === "otp"
@@ -418,8 +469,92 @@ export default function AuthModal({
               </div>
             )}
 
+            {mode === "login" && loginSuccess && (
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-brand flex items-center justify-center">
+                  <Check className="w-8 h-8 text-black" strokeWidth={2.5} />
+                </div>
+              </div>
+            )}
+
+            {/* Login: forgot password */}
+            {mode === "login" && forgotPassword && (
+              <>
+                {forgotSent ? (
+                  <div className="text-center space-y-6">
+                    <p className={`text-sm ${muted}`}>
+                      Si existe una cuenta con{" "}
+                      <span className={`font-semibold ${text}`}>{email}</span>,
+                      te enviamos un link para restablecer tu contraseña.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="w-full bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPasswordSubmit} className="mb-4">
+                    <p className={`text-sm text-center mb-4 ${muted}`}>
+                      Ingresa tu email y te enviaremos un link para
+                      restablecer tu contraseña.
+                    </p>
+                    <div
+                      className={`relative flex items-center border rounded-xl overflow-hidden mb-4 ${border}`}
+                    >
+                      <Mail className={`w-4 h-4 ml-4 flex-shrink-0 ${muted}`} />
+                      <input
+                        type="email"
+                        autoFocus
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (error) setError("");
+                        }}
+                        placeholder="tu@email.com"
+                        className={`flex-1 py-3.5 pl-3 pr-4 text-sm outline-none bg-transparent ${inputBg}`}
+                      />
+                    </div>
+                    {error && (
+                      <p className="text-red-500 text-xs pl-1 mb-3">{error}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={!email.trim() || loading}
+                      className="w-full bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Enviar link"
+                      )}
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
+
+            {/* Login: success */}
+            {mode === "login" && loginSuccess && (
+              <div className="text-center space-y-6">
+                <p className={`text-sm ${muted}`}>
+                  Has iniciado sesión correctamente.
+                </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
+
             {/* Login */}
-            {mode === "login" && (
+            {mode === "login" && !forgotPassword && !loginSuccess && (
               <>
                 <form onSubmit={handleLoginSubmit} className="space-y-3 mb-4">
                   <div
@@ -471,6 +606,18 @@ export default function AuthModal({
                       ) : (
                         <Eye className="w-4 h-4" />
                       )}
+                    </button>
+                  </div>
+                  <div className="flex justify-end -mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError("");
+                        setForgotPassword(true);
+                      }}
+                      className={`text-xs font-semibold hover:text-brand transition-colors ${muted}`}
+                    >
+                      ¿Olvidaste tu contraseña?
                     </button>
                   </div>
                   {error && (
@@ -769,7 +916,7 @@ export default function AuthModal({
               </div>
             )}
 
-            {(mode === "login" ||
+            {((mode === "login" && !forgotPassword && !loginSuccess) ||
               (mode === "register" && registerStep === "email")) && (
               <p className={`text-center text-[11px] mt-8 leading-relaxed ${muted}`}>
                 Al {mode === "login" ? "iniciar sesión" : "registrarte"} acepto

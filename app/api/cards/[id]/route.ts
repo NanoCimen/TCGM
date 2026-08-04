@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 async function getOwnedCard(supabase: Awaited<ReturnType<typeof createClient>>, cardId: string, userId: string) {
   const { data: card } = await supabase
     .from("cards")
-    .select("id, seller_id, status, image_url")
+    .select("id, seller_id, status, image_url, card_name, set_name")
     .eq("id", cardId)
     .single();
   if (!card) return { card: null, error: NextResponse.json({ error: "Carta no encontrada" }, { status: 404 }) };
@@ -59,6 +59,30 @@ export async function PATCH(
       .eq("card_id", params.id)
       .eq("status", "pending");
   }
+
+  // Delivery confirmed — let the buyer know their purchase is complete
+  if (status === "sold") {
+    const { data: acceptedOffer } = await supabase
+      .from("offers")
+      .select("buyer_id")
+      .eq("card_id", params.id)
+      .eq("status", "accepted")
+      .maybeSingle();
+
+    if (acceptedOffer) {
+      await supabase.from("notifications").insert({
+        user_id: acceptedOffer.buyer_id,
+        type: "sale_completed",
+        card_id: params.id,
+        message: `¡Entrega confirmada! "${card!.card_name}" ya es tuya.`,
+      });
+    }
+  }
+
+  // Wishlist-match notifications for newly published cards are handled by
+  // the on_card_published DB trigger (security definer — needs to bypass
+  // RLS to read other users' wishlists, so it can't run as this request's
+  // authenticated client).
 
   return NextResponse.json({ success: true });
 }

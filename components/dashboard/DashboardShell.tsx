@@ -13,6 +13,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import NotificationsBell from "@/components/notifications/NotificationsBell";
+import SignOutConfirmModal from "@/components/auth/SignOutConfirmModal";
 import { createClient } from "@/lib/supabase/client";
 
 export type DashboardNavKey =
@@ -77,7 +78,11 @@ export default function DashboardShell({
   initials: string;
   children: React.ReactNode;
 }) {
-  async function handleSignOut() {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function confirmSignOut() {
+    setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
     window.location.href = "/";
@@ -107,8 +112,8 @@ export default function DashboardShell({
       </header>
 
       <div className="flex">
-        <aside className="hidden md:flex flex-col justify-between w-56 lg:w-60 flex-shrink-0 border-r border-white/5 bg-[#0a0a0a] min-h-[calc(100vh-4rem)] sticky top-16 self-start py-6 px-3">
-          <nav className="space-y-1 flex-1">
+        <aside className="hidden md:flex flex-col w-56 lg:w-60 flex-shrink-0 border-r border-white/5 bg-[#0a0a0a] fixed top-16 bottom-0 left-0 z-40 py-6 px-3">
+          <nav className="space-y-1 flex-1 overflow-y-auto">
             {NAV_ITEMS.map((item) => {
               const isActive = item.key === active;
               const Icon = item.icon;
@@ -130,15 +135,15 @@ export default function DashboardShell({
           </nav>
           <button
             type="button"
-            onClick={handleSignOut}
-            className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold tracking-tight text-gray-600 hover:text-red-400 hover:bg-red-950/20 transition-colors w-full mt-4"
+            onClick={() => setConfirmOpen(true)}
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold tracking-tight text-gray-600 hover:text-red-400 hover:bg-red-950/20 transition-colors w-full mt-auto flex-shrink-0"
           >
             <LogOut className="w-[18px] h-[18px]" strokeWidth={1.8} />
             Cerrar sesión
           </button>
         </aside>
 
-        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0">
+        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -148,6 +153,13 @@ export default function DashboardShell({
           </motion.div>
         </main>
       </div>
+
+      <SignOutConfirmModal
+        open={confirmOpen}
+        loading={signingOut}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirmSignOut}
+      />
     </div>
   );
 }

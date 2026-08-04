@@ -126,6 +126,29 @@ export const POKEMON_SETS = [
 
 export type PokemonSet = (typeof POKEMON_SETS)[number];
 
+// Maps the Pokémon TCG API's `rarity` field to our own variant labels, so
+// selecting a card from search auto-fills the right "Tipo de carta" instead
+// of always defaulting to Regular.
+export const RARITY_TO_VARIANT: Record<string, CardVariant> = {
+  "Illustration Rare": "Illustration Rare",
+  "Special Illustration Rare": "Special Illustration Rare",
+  "Hyper Rare": "Hyper Rare / Rainbow",
+  "Rare Rainbow": "Hyper Rare / Rainbow",
+  "Rare Secret": "Hyper Rare / Rainbow",
+  "Rare Shiny": "Hyper Rare / Rainbow",
+  "Gold Rare": "Gold Rare",
+  "Rare Holo": "Holo",
+  "Rare Holo EX": "Holo",
+  "Rare Holo GX": "Holo",
+  "Rare Holo V": "Holo",
+  "Rare Holo VMAX": "Holo",
+  "Rare Holo VSTAR": "Holo",
+  "Amazing Rare": "Holo",
+  "Radiant Rare": "Holo",
+  "Rare Ultra": "Full Art",
+  "Ultra Rare": "Full Art",
+};
+
 export const VARIANT_SEARCH_SUFFIX: Record<string, string> = {
   "Reverse Holo": "reverse holo",
   Holo: "holo",

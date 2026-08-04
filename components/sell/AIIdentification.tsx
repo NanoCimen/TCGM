@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { VARIANTS, LANGUAGES } from "@/lib/cards/constants";
+import { VARIANTS, LANGUAGES, RARITY_TO_VARIANT } from "@/lib/cards/constants";
 
 export type Confidence = "high" | "medium" | "low";
 
@@ -22,6 +22,7 @@ type SearchResult = {
   number: string;
   set: { name: string; printedTotal: number };
   images: { small: string; large: string };
+  rarity?: string;
 };
 
 const FIELD_CLASS =
@@ -63,9 +64,13 @@ export default function AIIdentification({
   const [noResults, setNoResults] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped on every keystroke so a slow, now-stale request can never
+  // overwrite the results of a request fired after it.
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const requestId = ++requestIdRef.current;
 
     if (cardName.length < 2) {
       setResults([]);
@@ -84,16 +89,18 @@ export default function AIIdentification({
           `/api/pokemon-search?q=${encodeURIComponent(cardName)}`
         );
         const json = (await res.json()) as { data: SearchResult[] };
+        if (requestId !== requestIdRef.current) return; // a newer search superseded this one
         const data = (json.data ?? []).slice(0, 8);
         setResults(data);
         setNoResults(data.length === 0);
         setDropdownOpen(data.length > 0);
       } catch {
+        if (requestId !== requestIdRef.current) return;
         setResults([]);
         setNoResults(false);
         setDropdownOpen(false);
       } finally {
-        setSearching(false);
+        if (requestId === requestIdRef.current) setSearching(false);
       }
     }, 400);
 
@@ -113,6 +120,8 @@ export default function AIIdentification({
       cardNumber: fullNumber,
     });
     onOfficialImageUrl(result.images?.large ?? null);
+    const mappedVariant = result.rarity ? RARITY_TO_VARIANT[result.rarity] : undefined;
+    if (mappedVariant) onVariantChange(mappedVariant);
     setDropdownOpen(false);
     setResults([]);
     setNoResults(false);

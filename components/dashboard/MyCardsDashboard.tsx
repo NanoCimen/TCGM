@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, CheckCheck, Loader2, MessageCircle, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, CheckCheck, Loader2, MessageCircle, Pencil, Plus, Trash2, TrendingDown, TrendingUp, X } from "lucide-react";
 import DashboardShell, { Avatar } from "./DashboardShell";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
 import { formatPrice, USD_TO_DOP } from "@/lib/marketplace/utils";
@@ -26,6 +26,8 @@ export type DashboardCard = {
   id: string;
   card_name: string;
   set_name: string | null;
+  card_number: string | null;
+  variant: string | null;
   image_url: string | null;
   official_image_url: string | null;
   price_usd: number | null;
@@ -54,7 +56,7 @@ export type OfferWithDetails = {
   seller: { id: string; display_name: string | null; phone: string | null } | null;
 };
 
-type TabKey = "coleccion" | "reservadas" | "ofertas-recibidas" | "ofertas-hechas" | "mensajes" | "actividad";
+type TabKey = "coleccion" | "reservadas" | "ventas" | "ofertas-recibidas" | "ofertas-hechas" | "mensajes" | "actividad";
 
 type PublishModalData = { cardId: string; cardName: string; priceUsd: number | null };
 type DeleteModalData = { cardId: string; cardName: string };
@@ -437,6 +439,57 @@ export default function MyCardsDashboard({
   const portfolioUsd = [...drafts, ...available].reduce((sum, c) => sum + (c.price_usd ?? 0), 0);
   const soldUsd = sold.reduce((sum, c) => sum + (c.price_usd ?? 0), 0);
 
+  // Sold price per card = the accepted offer that closed the sale (falls back
+  // to the listed price if no matching offer is found, e.g. legacy data).
+  const soldPriceByCard = new Map<string, number>();
+  const latestOfferTimeByCard = new Map<string, number>();
+  for (const o of receivedOffers) {
+    if (o.status !== "accepted") continue;
+    const respondedAt = new Date(o.responded_at ?? o.created_at).getTime();
+    const latest = latestOfferTimeByCard.get(o.card_id);
+    if (latest === undefined || respondedAt > latest) {
+      latestOfferTimeByCard.set(o.card_id, respondedAt);
+      soldPriceByCard.set(o.card_id, o.offer_price);
+    }
+  }
+
+  const [floorPrices, setFloorPrices] = useState<
+    Record<string, number | null>
+  >({});
+
+  useEffect(() => {
+    if (tab !== "ventas") return;
+    const toFetch = sold.filter((c) => !(c.id in floorPrices));
+    if (toFetch.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const card of toFetch) {
+        try {
+          const params = new URLSearchParams({ name: card.card_name });
+          if (card.card_number) params.set("number", card.card_number);
+          if (card.variant) params.set("variant", card.variant);
+          const res = await fetch(`/api/tcg-price?${params.toString()}`);
+          const data = await res.json();
+          if (cancelled) return;
+          setFloorPrices((prev) => ({
+            ...prev,
+            [card.id]: typeof data?.displayPrice === "number" ? data.displayPrice : null,
+          }));
+        } catch {
+          if (!cancelled) {
+            setFloorPrices((prev) => ({ ...prev, [card.id]: null }));
+          }
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, sold.length]);
+
   const pendingReceived = receivedOffers.filter((o) => o.status === "pending").length;
   const pendingMade = madeOffers.filter((o) => o.status === "pending").length;
 
@@ -489,6 +542,7 @@ export default function MyCardsDashboard({
   const TABS: { key: TabKey; label: string; count?: number }[] = [
     { key: "coleccion", label: "Colección" },
     { key: "reservadas", label: "Reservadas", count: held.length || undefined },
+    { key: "ventas", label: "Ventas", count: sold.length || undefined },
     { key: "ofertas-recibidas", label: "Ofertas recibidas", count: pendingReceived || undefined },
     { key: "ofertas-hechas", label: "Ofertas hechas", count: pendingMade || undefined },
     { key: "mensajes", label: "Mensajes", count: totalUnreadMessages || undefined },
@@ -677,7 +731,7 @@ export default function MyCardsDashboard({
               />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {cards.filter((c) => c.status !== "hold").map((card) => {
+                {cards.filter((c) => c.status !== "sold").map((card) => {
                   const pendingOffers = offerCountByCard[card.id] ?? 0;
                   return (
                     <div
@@ -774,17 +828,6 @@ export default function MyCardsDashboard({
                             Confirmar entrega
                           </button>
                         )}
-                        {/* Sold: option to remove from portfolio */}
-                        {card.status === "sold" && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteModal({ cardId: card.id, cardName: card.card_name })}
-                            className="flex-1 text-[10px] py-1.5 px-2 rounded-lg border border-gray-800 text-gray-600 hover:text-red-400 hover:border-red-900/40 transition-colors truncate flex items-center justify-center gap-1"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            Eliminar del portafolio
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
@@ -857,6 +900,110 @@ export default function MyCardsDashboard({
                           Confirmar entrega
                         </button>
                       </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Ventas */}
+        {tab === "ventas" && (
+          <>
+            {sold.length === 0 ? (
+              <EmptyState
+                title="Aún no tienes ventas"
+                subtitle="Cuando confirmes la entrega de una carta reservada, aparecerá aquí junto a su precio de venta."
+              />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {sold.map((card) => {
+                  const soldUsd = soldPriceByCard.get(card.id) ?? card.price_usd ?? 0;
+                  const floorUsd = floorPrices[card.id];
+                  const floorLoading = !(card.id in floorPrices);
+                  const deltaPct =
+                    floorUsd != null && floorUsd > 0
+                      ? ((soldUsd - floorUsd) / floorUsd) * 100
+                      : null;
+
+                  return (
+                    <div
+                      key={card.id}
+                      className="bg-[#111] border border-gray-800 rounded-2xl p-3 flex flex-col"
+                    >
+                      <Link href={`/cards/${card.id}`} className="block relative w-full aspect-[3/4] mb-3">
+                        <CardThumbnail
+                          src={card.image_url}
+                          alt={card.card_name}
+                          className="w-full h-full rounded-lg"
+                        />
+                        {card.official_image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={card.official_image_url}
+                            alt={`${card.card_name} oficial`}
+                            className="absolute bottom-1 right-1 w-10 h-14 object-cover rounded shadow-lg border border-gray-700 bg-gray-900"
+                          />
+                        )}
+                      </Link>
+
+                      <p className="font-bold text-sm text-white truncate">{card.card_name}</p>
+                      <p className="text-[11px] font-mono text-gray-500 truncate mb-2">
+                        {card.set_name ?? "—"}
+                      </p>
+
+                      <div className="space-y-1.5 mb-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                            Vendida
+                          </span>
+                          <span className="font-mono text-sm font-bold text-white truncate">
+                            {formatDOP(soldUsd)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                            Precio actual
+                          </span>
+                          {floorLoading ? (
+                            <Loader2 className="w-3 h-3 animate-spin text-gray-600" />
+                          ) : floorUsd != null ? (
+                            <span className="font-mono text-sm font-bold text-gray-300 truncate">
+                              {formatDOP(floorUsd)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-600">—</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {deltaPct != null && (
+                        <span
+                          className={`inline-flex items-center gap-1 self-start text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded mb-2 ${
+                            deltaPct >= 0
+                              ? "text-brand bg-brand/10 border border-brand/20"
+                              : "text-red-400 bg-red-500/10 border border-red-500/20"
+                          }`}
+                        >
+                          {deltaPct >= 0 ? (
+                            <TrendingUp className="w-3 h-3" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3" />
+                          )}
+                          {deltaPct >= 0 ? "+" : ""}
+                          {deltaPct.toFixed(0)}% vs. actual
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteModal({ cardId: card.id, cardName: card.card_name })}
+                        className="w-full mt-auto text-[10px] py-1.5 px-2 rounded-lg border border-gray-800 text-gray-600 hover:text-red-400 hover:border-red-900/40 transition-colors truncate flex items-center justify-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Eliminar del portafolio
+                      </button>
                     </div>
                   );
                 })}

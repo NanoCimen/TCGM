@@ -6,6 +6,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCheck, ChevronDown, Heart, Loader2, MessageCircle, Star, Tag, X } from "lucide-react";
 import { openBuyNowWhatsApp } from "@/lib/marketplace/whatsapp";
+import { createClient } from "@/lib/supabase/client";
+import AuthModal from "@/components/auth/AuthModal";
 import ChatPanel, { type ChatMessage } from "./ChatPanel";
 import {
   motion,
@@ -245,7 +247,7 @@ export default function CardDetailClient({
   card,
   sellerId,
   sellerName,
-  currentUserId,
+  currentUserId: initialUserId,
   existingOffer,
   lastSaleUsd,
   livePrice,
@@ -261,10 +263,25 @@ export default function CardDetailClient({
   initialMessages?: ChatMessage[];
 }) {
   const router = useRouter();
+  const [currentUserId, setCurrentUserId] = useState(initialUserId);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [photoTab, setPhotoTab] = useState<"oficial" | "real">(
     card.official_image_url ? "oficial" : "real"
   );
   const [openSection, setOpenSection] = useState<AccordionKey | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") return;
+      setCurrentUserId(session?.user?.id ?? null);
+      // Give AuthModal time to show its "logged in" success message first.
+      if (session?.user) setTimeout(() => setAuthModalOpen(false), 1600);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Seller management state
   const [delistConfirm, setDelistConfirm] = useState(false);
@@ -905,12 +922,13 @@ export default function CardDetailClient({
 
             {/* Not logged in */}
             {!currentUserId && card.status === "available" && (
-              <Link
-                href="/login"
+              <button
+                type="button"
+                onClick={() => setAuthModalOpen(true)}
                 className="w-full bg-brand text-black text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#00c64b] transition-colors"
               >
                 Inicia sesión para comprar
-              </Link>
+              </button>
             )}
 
             {/* Deal already done this session */}
@@ -1302,6 +1320,13 @@ export default function CardDetailClient({
           </div>
         </div>
       </div>
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        mode="login"
+        isDark
+      />
     </div>
   );
 }

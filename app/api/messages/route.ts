@@ -71,5 +71,17 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const [{ data: sender }, { data: card }] = await Promise.all([
+    supabase.from("users").select("display_name").eq("id", user.id).single(),
+    supabase.from("cards").select("card_name").eq("id", card_id).single(),
+  ]);
+
+  await supabase.from("notifications").insert({
+    user_id: receiver_id,
+    type: "new_message",
+    card_id,
+    message: `${sender?.display_name ?? "Alguien"} te envió un mensaje sobre "${card?.card_name ?? "una carta"}".`,
+  });
+
   return NextResponse.json({ data });
 }
