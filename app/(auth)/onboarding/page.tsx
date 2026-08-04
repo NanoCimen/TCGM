@@ -10,7 +10,8 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [phone, setPhone] = useState("");
-  const [refCode, setRefCode] = useState("");
+  // Referral codes are temporarily disabled — see the "Código de referido" field below.
+  const refCode = "";
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,10 +29,6 @@ export default function OnboardingPage() {
       }
 
       setDisplayName(user.email?.split("@")[0] ?? "");
-
-      const savedRef = sessionStorage.getItem("tcgm_ref");
-      if (savedRef) setRefCode(savedRef);
-
       setChecking(false);
     }
     init();
@@ -113,34 +110,37 @@ export default function OnboardingPage() {
           }}
           placeholder="Tu nombre"
           maxLength={40}
-          className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-yap-primary rounded-2xl py-4 px-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-yap-primary/20 text-[15px] font-medium transition-all duration-300"
+          className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-brand rounded-2xl py-4 px-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-brand/20 text-[15px] font-medium transition-all duration-300"
         />
 
         <div className="relative group">
-          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-yap-primary transition-colors pointer-events-none" />
+          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-brand transition-colors pointer-events-none" />
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="WhatsApp (ej: 8091234567)"
             maxLength={15}
-            className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-yap-primary rounded-2xl py-4 pl-11 pr-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-yap-primary/20 text-[15px] transition-all duration-300"
+            className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-brand rounded-2xl py-4 pl-11 pr-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-brand/20 text-[15px] transition-all duration-300"
           />
         </div>
         <p className="text-xs text-zinc-600 -mt-2 pl-1">
           Solo se comparte con compradores / vendedores al coordinar una entrega.
         </p>
 
-        <div className="relative group">
-          <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-yap-primary transition-colors pointer-events-none" />
+        <div className="relative opacity-50 cursor-not-allowed" title="Próximamente">
+          <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
           <input
             type="text"
-            value={refCode}
-            onChange={(e) => setRefCode(e.target.value.toUpperCase())}
-            placeholder="Código de referido (opcional)"
+            value=""
+            disabled
+            placeholder="Código de referido"
             maxLength={6}
-            className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-yap-primary rounded-2xl py-4 pl-11 pr-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-yap-primary/20 text-[15px] font-mono tracking-widest transition-all duration-300"
+            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-11 pr-20 text-white placeholder:text-zinc-500 outline-none text-[15px] font-mono tracking-widest cursor-not-allowed"
           />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+            Pronto
+          </span>
         </div>
 
         {error && (
@@ -150,7 +150,7 @@ export default function OnboardingPage() {
         <button
           type="submit"
           disabled={!displayName.trim() || loading}
-          className="w-full bg-yap-primary hover:bg-yap-hover text-black font-bold py-4 rounded-2xl shadow-[0_0_20px_-5px_rgba(0,255,132,0.3)] hover:shadow-[0_0_25px_-5px_rgba(0,255,132,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 text-[15px]"
+          className="w-full bg-brand hover:bg-[#00c64b] text-black font-bold py-4 rounded-2xl shadow-[0_0_20px_-5px_rgba(0,229,89,0.3)] hover:shadow-[0_0_25px_-5px_rgba(0,229,89,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 text-[15px]"
         >
           {loading ? (
             <Loader2 className="animate-spin w-5 h-5" />

@@ -274,12 +274,35 @@ export default function AuthModal({
     const { error: updateError } = await supabase.auth.updateUser({
       password,
     });
-    setLoading(false);
 
     if (updateError) {
+      setLoading(false);
       setError(updateError.message);
       return;
     }
+
+    // Safety net: make sure the profile row has a display name even if the
+    // on-signup DB trigger didn't run for some reason.
+    const {
+      data: { user: newUser },
+    } = await supabase.auth.getUser();
+    if (newUser) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("display_name")
+        .eq("id", newUser.id)
+        .maybeSingle();
+      if (!profile?.display_name) {
+        await supabase.from("users").upsert(
+          {
+            id: newUser.id,
+            display_name: newUser.email?.split("@")[0] ?? "Usuario",
+          },
+          { onConflict: "id" }
+        );
+      }
+    }
+    setLoading(false);
 
     setRegisterStep("success");
   }
@@ -652,16 +675,15 @@ export default function AuthModal({
                   </button>
                   <button
                     type="button"
-                    disabled={!!oauthLoading}
-                    onClick={() => handleOAuth("apple")}
-                    className={`w-full flex items-center justify-center gap-3 py-3.5 border rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${btnOutline}`}
+                    disabled
+                    title="Próximamente"
+                    className={`w-full flex items-center justify-center gap-3 py-3.5 border rounded-xl text-sm font-semibold transition-colors opacity-50 cursor-not-allowed ${btnOutline}`}
                   >
-                    {oauthLoading === "apple" ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <AppleIcon />
-                    )}
+                    <AppleIcon />
                     Apple
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+                      Pronto
+                    </span>
                   </button>
                 </div>
               </>

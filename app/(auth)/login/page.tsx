@@ -48,7 +48,7 @@ function LoginForm() {
     <AuthLayout title="Iniciar sesion">
       <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
         <div className={`group relative ${error ? "animate-shake" : ""}`}>
-          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 group-focus-within:text-yap-primary transition-colors duration-300 pointer-events-none" />
+          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 group-focus-within:text-brand transition-colors duration-300 pointer-events-none" />
           <input
             type="email"
             autoFocus
@@ -62,7 +62,7 @@ function LoginForm() {
             className={`auth-input w-full pl-12 pr-4 py-4 bg-zinc-900/50 border rounded-2xl outline-none transition-all duration-300 font-medium text-white placeholder:text-zinc-500 focus:ring-1 ${
               error
                 ? "border-red-500/60 focus:border-red-500 focus:ring-red-500/20"
-                : "border-zinc-800 hover:border-zinc-700 focus:border-yap-primary focus:ring-yap-primary/20"
+                : "border-zinc-800 hover:border-zinc-700 focus:border-brand focus:ring-brand/20"
             }`}
             placeholder="tu@email.com"
           />
@@ -75,7 +75,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={!email.trim() || loading}
-          className="w-full bg-yap-primary hover:bg-yap-hover text-black font-bold py-4 rounded-2xl shadow-[0_0_20px_-5px_rgba(0,255,132,0.3)] hover:shadow-[0_0_25px_-5px_rgba(0,255,132,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 text-[15px]"
+          className="w-full bg-brand hover:bg-[#00c64b] text-black font-bold py-4 rounded-2xl shadow-[0_0_20px_-5px_rgba(0,229,89,0.3)] hover:shadow-[0_0_25px_-5px_rgba(0,229,89,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 text-[15px]"
         >
           {loading ? (
             <Loader2 className="animate-spin w-5 h-5" />

@@ -14,10 +14,10 @@ export default function AuthLayout({
   footer?: ReactNode;
 }) {
   return (
-    <main className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-yap-bg text-white selection:bg-yap-primary selection:text-black">
+    <main className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-[#0a0a0a] text-white selection:bg-brand selection:text-black">
 
       {/* Ambient glow blobs */}
-      <div className="pointer-events-none absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-yap-primary/5 rounded-full blur-[120px]" />
+      <div className="pointer-events-none absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-brand/5 rounded-full blur-[120px]" />
       <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[100px]" />
 
       {/* Card */}

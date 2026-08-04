@@ -85,7 +85,7 @@ export default function VerifyPage() {
       footer={
         <Link
           href="/login"
-          className="text-xs text-zinc-500 hover:text-yap-primary transition-colors font-medium"
+          className="text-xs text-zinc-500 hover:text-brand transition-colors font-medium"
         >
           Usar otro email
         </Link>
@@ -111,14 +111,14 @@ export default function VerifyPage() {
         )}
 
         {loading && (
-          <Loader2 className="w-5 h-5 animate-spin text-yap-primary" />
+          <Loader2 className="w-5 h-5 animate-spin text-brand" />
         )}
 
         <button
           type="button"
           onClick={() => verify(code)}
           disabled={code.length < 6 || loading}
-          className="w-full bg-yap-primary hover:bg-yap-hover text-black font-bold py-4 rounded-2xl transition-all disabled:opacity-40 disabled:cursor-not-allowed text-[15px]"
+          className="w-full bg-brand hover:bg-[#00c64b] text-black font-bold py-4 rounded-2xl transition-all disabled:opacity-40 disabled:cursor-not-allowed text-[15px]"
         >
           Verificar
         </button>
@@ -127,7 +127,7 @@ export default function VerifyPage() {
           type="button"
           onClick={resend}
           disabled={resending}
-          className="text-xs text-zinc-500 hover:text-yap-primary transition-colors"
+          className="text-xs text-zinc-500 hover:text-brand transition-colors"
         >
           {resending ? "Enviando..." : resent ? "¡Código reenviado!" : "Reenviar código"}
         </button>
