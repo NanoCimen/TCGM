@@ -25,8 +25,8 @@ export function openBuyNowWhatsApp(opts: {
     ? `*${opts.cardName}* (${opts.setName})`
     : `*${opts.cardName}*`;
   const text =
-    `¡Hola ${opts.sellerName}! 👋 Acabo de comprar tu carta ${card} en TCGRD al precio de lista (${price}).\n\n` +
-    `¿Cuándo y dónde coordinamos la entrega?`;
+    `¡Hola ${opts.sellerName}! Acabo de comprar tu carta ${card} en TCGRD al precio de lista (${price}).\n\n` +
+    `¿Cuándo y dónde coordinamos la entrega y el pago?`;
   window.open(waLink(opts.sellerPhone, text), "_blank");
 }
 
@@ -43,8 +43,8 @@ export function openOfferAcceptedWhatsApp(opts: {
     ? `*${opts.cardName}* (${opts.setName})`
     : `*${opts.cardName}*`;
   const text =
-    `¡Hola ${opts.buyerName}! 👋 Acepté tu oferta de ${price} por mi carta ${card} en TCGRD 🎉\n\n` +
-    `¿Cuándo y dónde coordinamos la entrega?`;
+    `¡Hola ${opts.buyerName}! Acepté tu oferta de ${price} por mi carta ${card} en TCGRD.\n\n` +
+    `¿Cuándo y dónde coordinamos la entrega y el pago?`;
   window.open(waLink(opts.buyerPhone, text), "_blank");
 }
 
@@ -61,7 +61,7 @@ export function openOfferAcceptedBuyerWhatsApp(opts: {
     ? `*${opts.cardName}* (${opts.setName})`
     : `*${opts.cardName}*`;
   const text =
-    `¡Hola ${opts.sellerName}! 👋 Vi que aceptaste mi oferta de ${price} por ${card} en TCGRD 🎉\n\n` +
-    `¿Cuándo y dónde coordinamos la entrega?`;
+    `¡Hola ${opts.sellerName}! Vi que aceptaste mi oferta de ${price} por ${card} en TCGRD.\n\n` +
+    `¿Cuándo y dónde coordinamos la entrega y el pago?`;
   window.open(waLink(opts.sellerPhone, text), "_blank");
 }

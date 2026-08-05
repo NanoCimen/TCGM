@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { friendlyUniqueViolation } from "@/lib/supabase/profileErrors";
 import { NextResponse } from "next/server";
 
 export async function PATCH(request: Request) {
@@ -29,7 +30,11 @@ export async function PATCH(request: Request) {
     .eq("id", user.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const friendly = friendlyUniqueViolation(error);
+    return NextResponse.json(
+      { error: friendly ?? error.message },
+      { status: friendly ? 409 : 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

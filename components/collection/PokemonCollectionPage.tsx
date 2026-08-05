@@ -16,7 +16,8 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
-import { formatPrice, USD_TO_DOP } from "@/lib/marketplace/utils";
+import ActivityPanel from "./ActivityPanel";
+import { USD_TO_DOP } from "@/lib/marketplace/utils";
 import {
   LANGUAGE_FLAG,
   LANGUAGES,
@@ -52,6 +53,16 @@ export type CollectionStats = {
   listedCount: number;
   soldVolume: number;
   uniqueSellers: number;
+};
+
+export type SaleActivity = {
+  id: string;
+  cardName: string;
+  cardImage: string | null;
+  priceUsd: number;
+  buyerName: string;
+  sellerName: string;
+  date: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -181,10 +192,10 @@ function CheckItem({
 function StatItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
         {label}
       </span>
-      <span className="text-sm font-mono font-bold text-white">{value}</span>
+      <span className="text-base font-mono font-bold text-white">{value}</span>
     </div>
   );
 }
@@ -204,7 +215,6 @@ function CardRow({
   onBuyClick: (id: string) => void;
   cardFloor: number | null;
 }) {
-  const isSold = card.status === "sold";
   const isOwn = currentUserId === card.seller_id;
   const canBuy = card.status === "available" && !isOwn;
   const isFloor = card.status === "available" && card.price_usd != null && cardFloor != null && card.price_usd <= cardFloor;
@@ -221,16 +231,16 @@ function CardRow({
           onBuyClick(card.id);
         }
       }}
-      className="grid grid-cols-[2.5rem_1fr_110px_110px_100px_110px_70px_120px_56px] gap-3 px-4 py-2.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group border-b border-gray-900 last:border-0"
+      className="grid grid-cols-[2.5rem_1fr_130px_120px_110px_130px_80px_130px_64px] gap-3 px-4 py-4 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group border-b border-gray-900 last:border-0"
     >
       {/* # */}
-      <div className="text-center font-mono text-xs text-gray-600 group-hover:text-gray-400 transition-colors">
+      <div className="text-center font-mono text-sm text-gray-600 group-hover:text-gray-400 transition-colors">
         {index + 1}
       </div>
 
       {/* Card */}
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="w-8 h-11 flex-shrink-0 rounded overflow-hidden bg-gray-900">
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className="w-11 h-[3.85rem] flex-shrink-0 rounded overflow-hidden bg-gray-900">
           <CardThumbnail
             src={card.official_image_url ?? card.image_url}
             alt={card.card_name}
@@ -238,10 +248,10 @@ function CardRow({
           />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-bold text-white truncate group-hover:text-brand transition-colors">
+          <p className="text-base font-bold text-white truncate group-hover:text-brand transition-colors">
             {card.card_name}
           </p>
-          <p className="text-[10px] text-gray-500 truncate font-mono">
+          <p className="text-xs text-gray-500 truncate font-mono">
             {card.set_name ?? "—"}
             {card.card_number ? ` · #${card.card_number}` : ""}
           </p>
@@ -250,25 +260,21 @@ function CardRow({
 
       {/* Price */}
       <div className="text-right">
-        <span
-          className={`font-mono text-sm font-bold ${
-            isSold ? "line-through text-gray-600" : "text-white"
-          }`}
-        >
+        <span className="font-mono text-base font-bold text-white">
           {card.price_usd != null ? formatDOP(card.price_usd) : "—"}
         </span>
-        {card.price_usd != null && !isSold && (
-          <p className="text-[10px] text-gray-600 font-mono">
+        {card.price_usd != null && (
+          <p className="text-xs text-gray-600 font-mono">
             ${card.price_usd.toFixed(2)}
           </p>
         )}
         {isFloor && (
-          <span className="inline-block text-[9px] font-bold text-brand bg-brand/10 border border-brand/20 px-1.5 py-px rounded mt-0.5">
+          <span className="inline-block text-[10px] font-bold text-brand bg-brand/10 border border-brand/20 px-1.5 py-px rounded mt-0.5">
             Floor
           </span>
         )}
         {aboveFloor && cardFloor != null && (
-          <p className="text-[9px] text-gray-600 font-mono mt-0.5">
+          <p className="text-[10px] text-gray-600 font-mono mt-0.5">
             floor {formatDOP(cardFloor)}
           </p>
         )}
@@ -279,14 +285,14 @@ function CardRow({
         {canBuy ? (
           <Link
             href={`/cards/${card.id}`}
-            className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-brand text-black hover:bg-[#00c64b] transition-colors whitespace-nowrap"
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-brand text-black hover:bg-[#00c64b] transition-colors whitespace-nowrap"
           >
-            <Zap className="w-2.5 h-2.5" />
+            <Zap className="w-3 h-3" />
             Comprar
           </Link>
         ) : (
-          <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-600">
-            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[card.status] ?? "bg-gray-600"}`} />
+          <span className="flex items-center gap-1.5 text-xs font-bold text-gray-600">
+            <span className={`w-2 h-2 rounded-full ${STATUS_DOT[card.status] ?? "bg-gray-600"}`} />
             {STATUS_LABEL[card.status] ?? card.status}
           </span>
         )}
@@ -294,7 +300,7 @@ function CardRow({
 
       {/* Market price */}
       <div className="text-right">
-        <span className="font-mono text-xs text-gray-500">
+        <span className="font-mono text-sm text-gray-500">
           {card.tcg_market_price != null
             ? `$${card.tcg_market_price.toFixed(2)}`
             : "—"}
@@ -305,7 +311,7 @@ function CardRow({
       <div>
         {card.variant !== "Regular" ? (
           <span
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
               VARIANT_BADGE_STYLES[card.variant] ??
               "bg-gray-800 text-gray-400 border-gray-700"
             }`}
@@ -313,27 +319,27 @@ function CardRow({
             {card.variant}
           </span>
         ) : (
-          <span className="text-[10px] text-gray-600">Regular</span>
+          <span className="text-xs text-gray-600">Regular</span>
         )}
       </div>
 
       {/* Language */}
       <div className="text-center">
-        <span className="text-sm" title={card.language}>
+        <span className="text-base" title={card.language}>
           {LANGUAGE_FLAG[card.language] ?? "🌐"}
         </span>
       </div>
 
       {/* Seller */}
       <div className="truncate">
-        <span className="text-[11px] font-mono text-gray-400 truncate">
+        <span className="text-xs font-mono text-gray-400 truncate">
           {card.seller_name}
         </span>
       </div>
 
       {/* Listed */}
       <div className="text-right">
-        <span className="text-[10px] font-mono text-gray-600">
+        <span className="text-xs font-mono text-gray-600">
           {timeAgo(card.created_at)}
         </span>
       </div>
@@ -356,7 +362,6 @@ function MobileCardRow({
   onBuyClick: (id: string) => void;
   cardFloor: number | null;
 }) {
-  const isSold = card.status === "sold";
   const isOwn = currentUserId === card.seller_id;
   const canBuy = card.status === "available" && !isOwn;
   const isFloor = card.status === "available" && card.price_usd != null && cardFloor != null && card.price_usd <= cardFloor;
@@ -375,10 +380,10 @@ function MobileCardRow({
       }}
       className="flex gap-3 p-3 border-b border-gray-900 hover:bg-white/[0.03] transition-colors cursor-pointer items-center group"
     >
-      <span className="text-[10px] font-mono text-gray-600 w-5 text-center flex-shrink-0">
+      <span className="text-xs font-mono text-gray-600 w-5 text-center flex-shrink-0">
         {index + 1}
       </span>
-      <div className="w-10 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-900">
+      <div className="w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-900">
         <CardThumbnail
           src={card.official_image_url ?? card.image_url}
           alt={card.card_name}
@@ -386,16 +391,16 @@ function MobileCardRow({
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white truncate group-hover:text-brand transition-colors">
+        <p className="text-base font-bold text-white truncate group-hover:text-brand transition-colors">
           {card.card_name}
         </p>
-        <p className="text-[10px] text-gray-500 font-mono truncate">
+        <p className="text-xs text-gray-500 font-mono truncate">
           {card.set_name ?? "—"}
         </p>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {card.variant !== "Regular" && (
             <span
-              className={`text-[9px] font-bold px-1 py-0.5 rounded border ${
+              className={`text-[10px] font-bold px-1 py-0.5 rounded border ${
                 VARIANT_BADGE_STYLES[card.variant] ??
                 "bg-gray-800 text-gray-400 border-gray-700"
               }`}
@@ -403,42 +408,38 @@ function MobileCardRow({
               {card.variant}
             </span>
           )}
-          <span className="text-[10px] text-gray-600 font-mono">
+          <span className="text-xs text-gray-600 font-mono">
             {LANGUAGE_FLAG[card.language] ?? "🌐"} {card.language}
           </span>
           {card.is_graded && card.grade && (
-            <span className="text-[9px] font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-1 py-0.5 rounded">
+            <span className="text-[10px] font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-1 py-0.5 rounded">
               {card.grade_company} {card.grade}
             </span>
           )}
         </div>
       </div>
       <div className="flex-shrink-0 text-right space-y-1">
-        <p
-          className={`font-mono text-sm font-bold ${
-            isSold ? "line-through text-gray-600" : "text-white"
-          }`}
-        >
+        <p className="font-mono text-base font-bold text-white">
           {card.price_usd != null ? formatDOP(card.price_usd) : "—"}
         </p>
         {isFloor && (
-          <span className="inline-block text-[9px] font-bold text-brand bg-brand/10 border border-brand/20 px-1.5 py-px rounded">
+          <span className="inline-block text-[10px] font-bold text-brand bg-brand/10 border border-brand/20 px-1.5 py-px rounded">
             Floor
           </span>
         )}
         {aboveFloor && cardFloor != null && (
-          <p className="text-[9px] text-gray-600 font-mono">
+          <p className="text-[10px] text-gray-600 font-mono">
             floor {formatDOP(cardFloor)}
           </p>
         )}
         {canBuy ? (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-brand text-black">
-            <Zap className="w-2.5 h-2.5" />
+          <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded bg-brand text-black">
+            <Zap className="w-3 h-3" />
             Comprar
           </span>
         ) : (
-          <span className="flex items-center justify-end gap-1 text-[10px] text-gray-600">
-            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[card.status] ?? "bg-gray-600"}`} />
+          <span className="flex items-center justify-end gap-1 text-xs text-gray-600">
+            <span className={`w-2 h-2 rounded-full ${STATUS_DOT[card.status] ?? "bg-gray-600"}`} />
             {STATUS_LABEL[card.status] ?? card.status}
           </span>
         )}
@@ -454,17 +455,17 @@ type SortKey = "recent" | "price_asc" | "price_desc" | "name";
 export default function PokemonCollectionPage({
   cards,
   stats,
+  sales,
 }: {
   cards: CollectionCard[];
   stats: CollectionStats;
+  sales: SaleActivity[];
 }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
-  const [statusFilter, setStatusFilter] = useState<Set<string>>(
-    new Set(["available"])
-  );
+  const [statusView, setStatusView] = useState<"all" | "available" | "hold" | "sold">("available");
   const [variantFilter, setVariantFilter] = useState<Set<string>>(new Set());
   const [langFilter, setLangFilter] = useState<Set<string>>(new Set());
   const [setFilter, setSetFilter] = useState<Set<string>>(new Set());
@@ -487,15 +488,6 @@ export default function PokemonCollectionPage({
     },
     [router]
   );
-
-  // Build counts per status for sidebar
-  const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of cards) {
-      counts[c.status] = (counts[c.status] ?? 0) + 1;
-    }
-    return counts;
-  }, [cards]);
 
   // Floor price per card group (only from available listings)
   const floorByCard = useMemo(() => {
@@ -526,8 +518,8 @@ export default function PokemonCollectionPage({
     let list = [...cards];
 
     // Status
-    if (statusFilter.size > 0) {
-      list = list.filter((c) => statusFilter.has(c.status));
+    if (statusView !== "all") {
+      list = list.filter((c) => c.status === statusView);
     }
 
     // Variant
@@ -567,7 +559,7 @@ export default function PokemonCollectionPage({
     else list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return list;
-  }, [cards, statusFilter, variantFilter, langFilter, setFilter, gradedFilter, search, sort]);
+  }, [cards, statusView, variantFilter, langFilter, setFilter, gradedFilter, search, sort]);
 
   function toggleSet<T>(set: Set<T>, val: T): Set<T> {
     const next = new Set(set);
@@ -578,18 +570,47 @@ export default function PokemonCollectionPage({
 
   const SidebarContent = (
     <div className="space-y-0 text-sm">
-      <FilterSection title="Estado">
-        {(["available", "hold", "sold"] as const).map((s) => (
-          <CheckItem
-            key={s}
-            label={STATUS_LABEL[s]}
-            checked={statusFilter.has(s)}
-            onChange={() => setStatusFilter((prev) => toggleSet(prev, s))}
-            dot={STATUS_DOT[s]}
-            count={countByStatus[s] ?? 0}
-          />
+      <p className="pb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+        Estatus
+      </p>
+      <div className="space-y-1.5 pb-3 border-b border-gray-800">
+        {(
+          [
+            { key: "available", label: "Comprar" },
+            { key: "hold", label: "Reservadas" },
+            { key: "sold", label: "Vendidas" },
+            { key: "all", label: "Todas" },
+          ] as const
+        ).map((opt) => (
+          <label key={opt.key} className="flex items-center gap-2 cursor-pointer group">
+            <input
+              type="radio"
+              name="statusView"
+              checked={statusView === opt.key}
+              onChange={() => setStatusView(opt.key)}
+              className="sr-only"
+            />
+            <span
+              className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${
+                statusView === opt.key
+                  ? "border-brand"
+                  : "border-gray-700 group-hover:border-gray-500"
+              }`}
+            >
+              {statusView === opt.key && (
+                <span className="w-1.5 h-1.5 rounded-full bg-brand block" />
+              )}
+            </span>
+            <span className="text-xs text-gray-400 group-hover:text-white transition-colors">
+              {opt.label}
+            </span>
+          </label>
         ))}
-      </FilterSection>
+      </div>
+
+      <p className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+        Traits
+      </p>
 
       <FilterSection title="Variante" defaultOpen={false}>
         {presentVariants.map((v) => (
@@ -673,11 +694,11 @@ export default function PokemonCollectionPage({
         ))}
       </FilterSection>
 
-      {(statusFilter.size > 0 || variantFilter.size > 0 || langFilter.size > 0 || setFilter.size > 0 || gradedFilter !== "all") && (
+      {(statusView !== "all" || variantFilter.size > 0 || langFilter.size > 0 || setFilter.size > 0 || gradedFilter !== "all") && (
         <button
           type="button"
           onClick={() => {
-            setStatusFilter(new Set(["available"]));
+            setStatusView("all");
             setVariantFilter(new Set());
             setLangFilter(new Set());
             setSetFilter(new Set());
@@ -693,10 +714,10 @@ export default function PokemonCollectionPage({
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="bg-[#0a0a0a] text-white">
       {/* Top nav */}
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-gray-800">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
           <Link
             href="/"
             className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors flex-shrink-0"
@@ -715,10 +736,10 @@ export default function PokemonCollectionPage({
               height={28}
               className="rounded-full object-cover flex-shrink-0"
             />
-            <h1 className="text-sm font-extrabold text-white tracking-tight truncate">
+            <h1 className="text-base font-extrabold text-white tracking-tight truncate">
               Pokémon TCG
             </h1>
-            <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-brand/30 text-brand bg-brand/5">
+            <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-brand/30 text-brand bg-brand/5">
               En vivo
             </span>
           </div>
@@ -764,10 +785,13 @@ export default function PokemonCollectionPage({
         ))}
       </div>
 
-      <div className="max-w-[1600px] mx-auto flex">
-        {/* Sidebar (desktop) */}
-        <aside className="hidden lg:block w-52 flex-shrink-0 border-r border-gray-800 min-h-screen pt-4 pb-8 px-4 sticky top-14 self-start max-h-[calc(100vh-3.5rem)] overflow-y-auto">
-          {SidebarContent}
+      <div className="max-w-[1800px] mx-auto flex min-h-[calc(100vh-3.5rem)]">
+        {/* Sidebar (desktop) — outer column stretches full height so the
+            divider border reaches the bottom; inner content sticks. */}
+        <aside className="hidden lg:block w-52 flex-shrink-0 border-r border-gray-800">
+          <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto pt-4 pb-8 px-4">
+            {SidebarContent}
+          </div>
         </aside>
 
         {/* Main content */}
@@ -782,7 +806,7 @@ export default function PokemonCollectionPage({
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               Filtros
-              {(statusFilter.size !== 1 || !statusFilter.has("available") || variantFilter.size > 0 || langFilter.size > 0 || gradedFilter !== "all") && (
+              {(statusView !== "all" || variantFilter.size > 0 || langFilter.size > 0 || gradedFilter !== "all") && (
                 <span className="w-1.5 h-1.5 rounded-full bg-brand" />
               )}
             </button>
@@ -828,7 +852,7 @@ export default function PokemonCollectionPage({
           </div>
 
           {/* Table header (desktop) */}
-          <div className="hidden lg:grid grid-cols-[2.5rem_1fr_110px_110px_100px_110px_70px_120px_56px] gap-3 px-4 py-2 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
+          <div className="hidden lg:grid grid-cols-[2.5rem_1fr_130px_120px_110px_130px_80px_130px_64px] gap-3 px-4 py-2.5 border-b border-gray-800 text-[10px] font-bold uppercase tracking-widest text-gray-600">
             <div className="text-center">#</div>
             <div>Carta</div>
             <div className="text-right">Precio</div>
@@ -850,7 +874,7 @@ export default function PokemonCollectionPage({
                 type="button"
                 onClick={() => {
                   setSearch("");
-                  setStatusFilter(new Set(["available"]));
+                  setStatusView("all");
                   setVariantFilter(new Set());
                   setLangFilter(new Set());
                   setGradedFilter("all");
@@ -890,6 +914,9 @@ export default function PokemonCollectionPage({
             ))}
           </div>
         </div>
+
+        {/* Activity + sales chart (desktop) */}
+        <ActivityPanel sales={sales} />
       </div>
 
       {/* Mobile filter drawer */}

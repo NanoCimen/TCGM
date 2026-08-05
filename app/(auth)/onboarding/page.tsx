@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, Phone, Ticket } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyUniqueViolation } from "@/lib/supabase/profileErrors";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -36,10 +37,15 @@ export default function OnboardingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+
     const name = displayName.trim();
     if (!name) return;
+    if (phone.trim().replace(/\D/g, "").length < 10) {
+      setError("Ingresa un número de WhatsApp válido");
+      return;
+    }
 
-    setError("");
     setLoading(true);
 
     const supabase = createClient();
@@ -53,12 +59,12 @@ export default function OnboardingPage() {
     }
 
     const { error: upsertError } = await supabase.from("users").upsert(
-      { id: user.id, display_name: name, phone: phone.trim() || null },
+      { id: user.id, display_name: name, phone: phone.trim() },
       { onConflict: "id" }
     );
 
     if (upsertError) {
-      setError(upsertError.message);
+      setError(friendlyUniqueViolation(upsertError) ?? upsertError.message);
       setLoading(false);
       return;
     }
@@ -121,11 +127,12 @@ export default function OnboardingPage() {
             onChange={(e) => setPhone(e.target.value)}
             placeholder="WhatsApp (ej: 8091234567)"
             maxLength={15}
+            required
             className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-brand rounded-2xl py-4 pl-11 pr-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-brand/20 text-[15px] transition-all duration-300"
           />
         </div>
         <p className="text-xs text-zinc-600 -mt-2 pl-1">
-          Solo se comparte con compradores / vendedores al coordinar una entrega.
+          Necesario para comprar y vender — solo se comparte con compradores / vendedores al coordinar una entrega.
         </p>
 
         <div className="relative opacity-50 cursor-not-allowed" title="Próximamente">
@@ -149,7 +156,7 @@ export default function OnboardingPage() {
 
         <button
           type="submit"
-          disabled={!displayName.trim() || loading}
+          disabled={!displayName.trim() || !phone.trim() || loading}
           className="w-full bg-brand hover:bg-[#00c64b] text-black font-bold py-4 rounded-2xl shadow-[0_0_20px_-5px_rgba(0,229,89,0.3)] hover:shadow-[0_0_25px_-5px_rgba(0,229,89,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 text-[15px]"
         >
           {loading ? (

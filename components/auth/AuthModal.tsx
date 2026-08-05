@@ -12,9 +12,12 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  User,
+  Phone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyUniqueViolation } from "@/lib/supabase/profileErrors";
 import OtpInput from "./OtpInput";
 
 export type AuthMode = "login" | "register";
@@ -28,7 +31,7 @@ type AuthModalProps = {
   initialError?: string;
 };
 
-type RegisterStep = "email" | "otp" | "terms" | "password" | "success";
+type RegisterStep = "email" | "otp" | "terms" | "password" | "profile" | "success";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -77,6 +80,8 @@ export default function AuthModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [phone, setPhone] = useState("");
   const [registerStep, setRegisterStep] = useState<RegisterStep>("email");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [singleAccount, setSingleAccount] = useState(false);
@@ -96,6 +101,8 @@ export default function AuthModal({
     setConfirmPassword("");
     setShowPassword(false);
     setOtp("");
+    setDisplayName("");
+    setPhone("");
     setRegisterStep("email");
     setAcceptedTerms(false);
     setSingleAccount(false);
@@ -118,6 +125,8 @@ export default function AuthModal({
     setOtp("");
     setPassword("");
     setConfirmPassword("");
+    setDisplayName("");
+    setPhone("");
     setForgotPassword(initialForgotPassword);
     setForgotSent(false);
     setLoginSuccess(false);
@@ -275,34 +284,54 @@ export default function AuthModal({
       password,
     });
 
+    setLoading(false);
+
     if (updateError) {
-      setLoading(false);
       setError(updateError.message);
       return;
     }
 
-    // Safety net: make sure the profile row has a display name even if the
-    // on-signup DB trigger didn't run for some reason.
-    const {
-      data: { user: newUser },
-    } = await supabase.auth.getUser();
-    if (newUser) {
-      const { data: profile } = await supabase
-        .from("users")
-        .select("display_name")
-        .eq("id", newUser.id)
-        .maybeSingle();
-      if (!profile?.display_name) {
-        await supabase.from("users").upsert(
-          {
-            id: newUser.id,
-            display_name: newUser.email?.split("@")[0] ?? "Usuario",
-          },
-          { onConflict: "id" }
-        );
-      }
+    setDisplayName(email.split("@")[0] ?? "");
+    setRegisterStep("profile");
+  }
+
+  async function handleProfileSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    const name = displayName.trim();
+    const phoneDigits = phone.trim();
+    if (name.length < 2) {
+      setError("Ingresa un nombre de usuario");
+      return;
     }
+    if (phoneDigits.replace(/\D/g, "").length < 10) {
+      setError("Ingresa un número de WhatsApp válido");
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setLoading(false);
+      setError("Tu sesión expiró. Intenta de nuevo.");
+      return;
+    }
+
+    const { error: upsertError } = await supabase.from("users").upsert(
+      { id: user.id, display_name: name, phone: phoneDigits },
+      { onConflict: "id" }
+    );
     setLoading(false);
+
+    if (upsertError) {
+      setError(friendlyUniqueViolation(upsertError) ?? upsertError.message);
+      return;
+    }
 
     setRegisterStep("success");
   }
@@ -391,7 +420,9 @@ export default function AuthModal({
             ? "Acepta los términos"
             : registerStep === "password"
               ? "Crea tu contraseña"
-              : "¡Éxito!";
+              : registerStep === "profile"
+                ? "Completa tu perfil"
+                : "¡Éxito!";
 
   return (
     <AnimatePresence>
@@ -911,6 +942,68 @@ export default function AuthModal({
                 <button
                   type="submit"
                   disabled={!password || !confirmPassword || loading}
+                  className="w-full bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Continuar"
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* Register: profile (mandatory — needed to buy/sell) */}
+            {mode === "register" && registerStep === "profile" && (
+              <form onSubmit={handleProfileSubmit} className="space-y-3">
+                <p className={`text-sm text-center mb-1 ${muted}`}>
+                  Tu nombre y WhatsApp son necesarios para comprar y vender —
+                  así compradores y vendedores pueden coordinar contigo.
+                </p>
+                <div
+                  className={`relative flex items-center border rounded-xl overflow-hidden ${border}`}
+                >
+                  <User className={`w-4 h-4 ml-4 flex-shrink-0 ${muted}`} />
+                  <input
+                    type="text"
+                    autoFocus
+                    autoComplete="name"
+                    value={displayName}
+                    onChange={(e) => {
+                      setDisplayName(e.target.value);
+                      if (error) setError("");
+                    }}
+                    placeholder="Nombre de usuario"
+                    maxLength={40}
+                    className={`flex-1 py-3.5 pl-3 pr-4 text-sm outline-none bg-transparent ${inputBg}`}
+                  />
+                </div>
+
+                <div
+                  className={`relative flex items-center border rounded-xl overflow-hidden ${border}`}
+                >
+                  <Phone className={`w-4 h-4 ml-4 flex-shrink-0 ${muted}`} />
+                  <input
+                    type="tel"
+                    autoComplete="tel"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      if (error) setError("");
+                    }}
+                    placeholder="WhatsApp (ej: 8091234567)"
+                    maxLength={15}
+                    className={`flex-1 py-3.5 pl-3 pr-4 text-sm outline-none bg-transparent ${inputBg}`}
+                  />
+                </div>
+
+                {error && (
+                  <p className="text-red-500 text-xs pl-1">{error}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!displayName.trim() || !phone.trim() || loading}
                   className="w-full bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
