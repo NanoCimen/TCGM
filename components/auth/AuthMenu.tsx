@@ -11,6 +11,7 @@ import SignOutConfirmModal from "@/components/auth/SignOutConfirmModal";
 type AuthMenuProps = {
   isDark: boolean;
   user: User | null;
+  avatarUrl: string | null;
   onSelectLogin: () => void;
   onSelectRegister: () => void;
 };
@@ -18,6 +19,7 @@ type AuthMenuProps = {
 export default function AuthMenu({
   isDark,
   user,
+  avatarUrl,
   onSelectLogin,
   onSelectRegister,
 }: AuthMenuProps) {
@@ -83,9 +85,18 @@ export default function AuthMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Cuenta"
-        className="w-10 h-10 flex items-center justify-center rounded-full text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="w-10 h-10 flex items-center justify-center rounded-full text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors overflow-hidden"
       >
-        <CircleUser className="w-6 h-6" strokeWidth={1.5} />
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt="Cuenta"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <CircleUser className="w-6 h-6" strokeWidth={1.5} />
+        )}
       </button>
 
       <AnimatePresence>

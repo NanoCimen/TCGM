@@ -25,3 +25,16 @@ export interface MarketplaceStats {
   heroImage: string | null;
   thumbnailImage: string | null;
 }
+
+// Aggregate demand for a card across ALL users' wishlists — a "hot cards"
+// leaderboard, not any single person's personal wishlist. Never carries a
+// user identity, only counts (see get_wishlist_demand SQL function).
+export interface WishlistDemand {
+  pokemon_tcg_id: string;
+  card_name: string;
+  card_number: string | null;
+  set_name: string | null;
+  image_url: string | null;
+  variant: string | null;
+  wish_count: number;
+}

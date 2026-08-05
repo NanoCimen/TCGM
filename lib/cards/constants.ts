@@ -39,7 +39,19 @@ export const VARIANT_BADGE_STYLES: Record<string, string> = {
 
 // All known Pokémon TCG sets — newest first
 export const POKEMON_SETS = [
+  // Mega Evolution era (2025–2026)
+  "Storm Emerald",
+  "Pitch Black",
+  "Chaos Rising",
+  "Perfect Order",
+  "Ascended Heroes",
+  "Phantasmal Flames",
+  "Mega Evolution",
+  "White Flare",
+  "Black Bolt",
   // Scarlet & Violet era (2023–2025)
+  "Destined Rivals",
+  "Journey Together",
   "Prismatic Evolutions",
   "Surging Sparks",
   "Stellar Crown",

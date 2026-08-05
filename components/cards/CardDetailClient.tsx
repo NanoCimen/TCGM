@@ -247,6 +247,7 @@ export default function CardDetailClient({
   card,
   sellerId,
   sellerName,
+  sellerPhone,
   currentUserId: initialUserId,
   existingOffer,
   lastSaleUsd,
@@ -256,6 +257,7 @@ export default function CardDetailClient({
   card: CardDetailData;
   sellerId: string;
   sellerName: string;
+  sellerPhone: string | null;
   currentUserId: string | null;
   existingOffer: { id: string; offer_price: number } | null;
   lastSaleUsd: number | null;
@@ -452,6 +454,7 @@ export default function CardDetailClient({
         cardName: card.card_name,
         setName: card.set_name,
         sellerName,
+        sellerPhone,
         priceUsd: card.price_usd!,
       });
     } finally {

@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Command, Sun, Moon, Clock, X } from "lucide-react";
+import { Search, Command, Sun, Moon, Clock, X, Heart, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -15,6 +15,7 @@ import CardThumbnail from "./CardThumbnail";
 import type {
   MarketplaceCard,
   MarketplaceStats,
+  WishlistDemand,
 } from "@/lib/marketplace/types";
 import {
   formatPrice,
@@ -39,6 +40,7 @@ function Navbar({
   search,
   onSearchChange,
   user,
+  avatarUrl,
   onAuthSelect,
 }: {
   isDark: boolean;
@@ -46,6 +48,7 @@ function Navbar({
   search: string;
   onSearchChange: (value: string) => void;
   user: User | null;
+  avatarUrl: string | null;
   onAuthSelect: (mode: AuthMode) => void;
 }) {
   return (
@@ -76,17 +79,19 @@ function Navbar({
               Mis cartas
             </Link>
             <Link
-              href="/actividad"
+              href="/collection/pokemon"
               className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
             >
               Actividad
             </Link>
-            <Link
-              href="/wishlist"
+            <a
+              href="https://www.instagram.com/tcg.rd/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
             >
-              Wishlist
-            </Link>
+              Nosotros
+            </a>
           </div>
         </div>
 
@@ -127,6 +132,7 @@ function Navbar({
           <AuthMenu
             isDark={isDark}
             user={user}
+            avatarUrl={avatarUrl}
             onSelectLogin={() => onAuthSelect("login")}
             onSelectRegister={() => onAuthSelect("register")}
           />
@@ -435,20 +441,40 @@ function TrendingSection({
   onCardClick: (id: string) => void;
   user: User | null;
 }) {
-  const [tab, setTab] = useState<"top" | "recent">("recent");
+  const [tab, setTab] = useState<"buscadas" | "recent">("recent");
+  const [demand, setDemand] = useState<WishlistDemand[]>([]);
+  const [demandLoading, setDemandLoading] = useState(false);
+  const [demandLoaded, setDemandLoaded] = useState(false);
+  const router = useRouter();
 
   const sorted = useMemo(() => {
-    const list = [...cards];
-    if (tab === "top") {
-      return list.sort(
-        (a, b) => (b.price_usd ?? 0) - (a.price_usd ?? 0)
-      );
-    }
-    return list.sort(
+    return [...cards].sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [cards, tab]);
+  }, [cards]);
+
+  // "Buscadas" is demand aggregated across ALL users' wishlists (a "hot
+  // cards" leaderboard) — fetched once and cached for the session.
+  useEffect(() => {
+    if (tab !== "buscadas" || demandLoaded) return;
+    let cancelled = false;
+    setDemandLoading(true);
+    fetch("/api/wishlist/demand")
+      .then((res) => res.json())
+      .then(({ data }) => {
+        if (!cancelled) {
+          setDemand(data ?? []);
+          setDemandLoaded(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDemandLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, demandLoaded]);
 
   if (!cards.length) {
     return (
@@ -490,14 +516,14 @@ function TrendingSection({
         <div className="flex items-center gap-5 text-sm font-bold tracking-tight">
           <button
             type="button"
-            onClick={() => setTab("top")}
+            onClick={() => setTab("buscadas")}
             className={`pb-1.5 px-1 border-b-2 transition-colors ${
-              tab === "top"
+              tab === "buscadas"
                 ? "text-gray-900 dark:text-white border-brand"
                 : "text-gray-400 dark:text-gray-500 border-transparent hover:text-gray-900 dark:hover:text-white"
             }`}
           >
-            Top
+            Buscadas
           </button>
           <button
             type="button"
@@ -513,6 +539,146 @@ function TrendingSection({
         </div>
       </div>
 
+      {tab === "buscadas" ? (
+        demandLoading ? (
+          <div className="py-16 text-center">
+            <Loader2 className="w-6 h-6 text-gray-400 dark:text-gray-600 animate-spin mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando…</p>
+          </div>
+        ) : demand.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-12 text-center">
+            <Heart className="w-8 h-8 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400">
+              Aún no hay cartas deseadas por la comunidad.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block w-full">
+              <div className="grid grid-cols-[3rem_minmax(280px,1fr)_140px] gap-4 px-4 pb-4 border-b border-gray-200 dark:border-gray-800/60 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                <div className="text-center">#</div>
+                <div>Carta</div>
+                <div className="text-right pr-2">Deseos</div>
+              </div>
+
+              <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                {demand.map((item, index) => (
+                  <div
+                    key={item.pokemon_tcg_id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(`/wishlist/card/${item.pokemon_tcg_id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/wishlist/card/${item.pokemon_tcg_id}`);
+                      }
+                    }}
+                    className="grid grid-cols-[3rem_minmax(280px,1fr)_140px] gap-4 px-4 py-3 items-center hover:bg-gray-50/80 dark:hover:bg-[#111]/80 hover:shadow-[0_1px_3px_rgb(0,0,0,0.02)] group transition-all cursor-pointer rounded-lg dark:hover:shadow-[0_1px_3px_rgb(0,0,0,0.2)]"
+                  >
+                    <div className="text-center font-mono text-xs text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+                      {index + 1}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <CardThumbnail
+                        src={item.image_url}
+                        alt={item.card_name}
+                        className="w-10 h-14 rounded-[4px] border border-gray-200 dark:border-gray-800 shadow-sm flex-shrink-0"
+                      />
+                      <div>
+                        <p className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-brand transition-colors tracking-tight">
+                          {item.card_name}
+                        </p>
+                        <p className="text-[11px] font-mono text-gray-500 dark:text-gray-400 mt-0.5">
+                          {item.set_name ?? "—"}
+                          {item.card_number ? ` · ${item.card_number}` : ""}
+                        </p>
+                        {item.variant && item.variant !== "Regular" && (
+                          <span
+                            className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                              VARIANT_BADGE_STYLES[item.variant] ??
+                              "bg-gray-800 text-gray-400 border-gray-700"
+                            }`}
+                          >
+                            {item.variant}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-1.5 pr-2">
+                      <Heart className="w-4 h-4 text-brand fill-brand flex-shrink-0" />
+                      <span className="font-mono text-sm font-bold text-gray-900 dark:text-white">
+                        {item.wish_count}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="md:hidden space-y-4">
+              {demand.map((item, index) => (
+                <div
+                  key={item.pokemon_tcg_id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/wishlist/card/${item.pokemon_tcg_id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/wishlist/card/${item.pokemon_tcg_id}`);
+                    }
+                  }}
+                  className="bg-white dark:bg-[#111] border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition-shadow active:scale-[0.99] cursor-pointer relative overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900" />
+
+                  <div className="relative flex-shrink-0">
+                    <CardThumbnail
+                      src={item.image_url}
+                      alt={item.card_name}
+                      className="w-16 h-24 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+                    />
+                    <span className="absolute -top-2 -left-2 w-6 h-6 bg-gray-900 dark:bg-gray-800 text-white rounded-md flex items-center justify-center text-xs font-mono font-bold shadow-md border border-gray-800 dark:border-gray-700">
+                      {index + 1}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col justify-between flex-1 py-1">
+                    <div>
+                      <h3 className="font-bold text-[15px] tracking-tight text-gray-900 dark:text-white leading-tight pr-4">
+                        {item.card_name}
+                      </h3>
+                      <p className="text-[11px] font-mono text-gray-500 dark:text-gray-400">
+                        {item.set_name ?? "—"}
+                        {item.card_number ? ` · ${item.card_number}` : ""}
+                      </p>
+                      {item.variant && item.variant !== "Regular" && (
+                        <span
+                          className={`inline-block mt-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                            VARIANT_BADGE_STYLES[item.variant] ??
+                            "bg-gray-800 text-gray-400 border-gray-700"
+                          }`}
+                        >
+                          {item.variant}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end mt-4">
+                      <span className="flex items-center gap-1 text-xs font-bold text-brand">
+                        <Heart className="w-3.5 h-3.5 fill-brand" />
+                        {item.wish_count} deseos
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )
+      ) : (
+        <>
       <div className="hidden md:block w-full">
         <div className="grid grid-cols-[3rem_minmax(280px,1fr)_120px_120px_120px_180px] gap-4 px-4 pb-4 border-b border-gray-200 dark:border-gray-800/60 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
           <div className="text-center">#</div>
@@ -684,13 +850,14 @@ function TrendingSection({
           );
         })}
       </div>
+        </>
+      )}
     </section>
   );
 }
 
 function Footer() {
   const links = [
-    { label: "Explorar", href: "/" },
     { label: "Soporte", href: "/soporte" },
     { label: "Términos de Servicio", href: "/terminos" },
     { label: "Privacidad", href: "/privacidad" },
@@ -755,6 +922,7 @@ export default function MarketplacePage({
   const [authInitialForgotPassword, setAuthInitialForgotPassword] = useState(false);
   const [authInitialError, setAuthInitialError] = useState("");
   const [user, setUser] = useState<User | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayedCards, setDisplayedCards] = useState<MarketplaceCard[]>(cards);
   const [hasMore, setHasMore] = useState(cards.length === 24);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -799,6 +967,28 @@ export default function MarketplacePage({
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // The auth user object doesn't carry the profile photo — that lives on
+  // public.users, kept in sync with what's set in Profile Settings.
+  useEffect(() => {
+    if (!user) {
+      setAvatarUrl(null);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("users")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled) setAvatarUrl(data?.avatar_url ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Supabase forwards expired/used recovery links here as either a
   // `#error=...` hash (Site URL fallback) or, via our /auth/callback route,
@@ -874,6 +1064,7 @@ export default function MarketplacePage({
         search={search}
         onSearchChange={setSearch}
         user={user}
+        avatarUrl={avatarUrl}
         onAuthSelect={openAuth}
       />
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 lg:px-10 mt-12">

@@ -48,7 +48,9 @@ export default function PrivacidadPage() {
           "Dirección de correo electrónico (para autenticación y comunicaciones).",
           "Nombre o nombre de usuario que eliges mostrar públicamente.",
           "Foto de perfil y banner (si decides subirlos — son opcionales).",
+          "Número de teléfono / WhatsApp (opcional) — solo se comparte con la otra parte de una transacción confirmada, para coordinar la entrega y el pago.",
           "Información de los artículos que publicas: nombre, precio, condición, fotografías e idioma.",
+          "Contenido de los mensajes que envías a otros usuarios por el chat de cada carta.",
           "Contenido de mensajes o reportes enviados a soporte.",
         ]} />
 
@@ -72,6 +74,8 @@ export default function PrivacidadPage() {
           "Autenticarte de forma segura y mantener tu sesión activa.",
           "Mostrar tu perfil público (nombre de usuario y foto si los configuraste).",
           "Publicar y gestionar tus listados en el mercado.",
+          "Habilitar el chat entre comprador y vendedor dentro de cada carta.",
+          "Compartir tu número de teléfono con la otra parte de una transacción confirmada (compra directa u oferta aceptada), para que puedan coordinar por WhatsApp la entrega y el pago. Esto ocurre únicamente cuando ambas partes cierran un trato, nunca antes.",
           "Enviarte notificaciones sobre tu wishlist cuando una carta que sigues esté disponible.",
           "Enviarte comunicaciones relacionadas con tu cuenta (cambios de contraseña, alertas de seguridad).",
           "Prevenir fraudes, abusos y cumplir con obligaciones legales.",

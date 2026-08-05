@@ -8,6 +8,8 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  Heart,
+  Loader2,
   Search,
   SlidersHorizontal,
   X,
@@ -18,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
 import ActivityPanel from "./ActivityPanel";
 import { USD_TO_DOP } from "@/lib/marketplace/utils";
+import type { WishlistDemand } from "@/lib/marketplace/types";
 import {
   LANGUAGE_FLAG,
   LANGUAGES,
@@ -231,7 +234,7 @@ function CardRow({
           onBuyClick(card.id);
         }
       }}
-      className="grid grid-cols-[2.5rem_1fr_130px_120px_110px_130px_80px_130px_64px] gap-3 px-4 py-4 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group border-b border-gray-900 last:border-0"
+      className="grid grid-cols-[2.5rem_1fr_130px_120px_130px_80px_130px_64px] gap-3 px-4 py-4 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group border-b border-gray-900 last:border-0"
     >
       {/* # */}
       <div className="text-center font-mono text-sm text-gray-600 group-hover:text-gray-400 transition-colors">
@@ -296,15 +299,6 @@ function CardRow({
             {STATUS_LABEL[card.status] ?? card.status}
           </span>
         )}
-      </div>
-
-      {/* Market price */}
-      <div className="text-right">
-        <span className="font-mono text-sm text-gray-500">
-          {card.tcg_market_price != null
-            ? `$${card.tcg_market_price.toFixed(2)}`
-            : "—"}
-        </span>
       </div>
 
       {/* Variant */}
@@ -448,6 +442,62 @@ function MobileCardRow({
   );
 }
 
+// ─── Wishlist Demand Row ───────────────────────────────────────────────────────
+// Shows how many collectors want a card, aggregated across all users —
+// not a single person's personal wishlist entry.
+
+function WishlistRow({ item, index }: { item: WishlistDemand; index: number }) {
+  return (
+    <div className="grid grid-cols-[2.5rem_1fr_140px_64px] gap-3 px-4 py-4 items-center hover:bg-white/[0.03] transition-colors group border-b border-gray-900 last:border-0">
+      <div className="text-center font-mono text-sm text-gray-600 group-hover:text-gray-400 transition-colors">
+        {index + 1}
+      </div>
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className="w-11 h-[3.85rem] flex-shrink-0 rounded overflow-hidden bg-gray-900">
+          <CardThumbnail src={item.image_url} alt={item.card_name} className="w-full h-full" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-base font-bold text-white truncate">{item.card_name}</p>
+          <p className="text-xs text-gray-500 truncate font-mono">
+            {item.set_name ?? "—"}
+            {item.card_number ? ` · #${item.card_number}` : ""}
+          </p>
+        </div>
+      </div>
+      <div className="text-right text-xs font-mono text-gray-600">
+        {item.variant && item.variant !== "Regular" ? item.variant : "—"}
+      </div>
+      <div className="flex justify-end">
+        <span className="flex items-center gap-1 text-xs font-bold text-brand">
+          <Heart className="w-3.5 h-3.5 fill-brand" />
+          {item.wish_count}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MobileWishlistRow({ item, index }: { item: WishlistDemand; index: number }) {
+  return (
+    <div className="flex gap-3 p-3 border-b border-gray-900 items-center group">
+      <span className="text-xs font-mono text-gray-600 w-5 text-center flex-shrink-0">
+        {index + 1}
+      </span>
+      <div className="w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-900">
+        <CardThumbnail src={item.image_url} alt={item.card_name} className="w-full h-full" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-base font-bold text-white truncate">{item.card_name}</p>
+        <p className="text-xs text-gray-500 font-mono truncate">{item.set_name ?? "—"}</p>
+      </div>
+      <span className="flex-shrink-0 flex items-center gap-1 text-xs font-bold text-brand">
+        <Heart className="w-3.5 h-3.5 fill-brand" />
+        {item.wish_count}
+      </span>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 type SortKey = "recent" | "price_asc" | "price_desc" | "name";
@@ -465,7 +515,9 @@ export default function PokemonCollectionPage({
   const [user, setUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
-  const [statusView, setStatusView] = useState<"all" | "available" | "hold" | "sold">("available");
+  const [statusView, setStatusView] = useState<"available" | "hold" | "sold" | "wishlist">("available");
+  const [wishlistItems, setWishlistItems] = useState<WishlistDemand[]>([]);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [variantFilter, setVariantFilter] = useState<Set<string>>(new Set());
   const [langFilter, setLangFilter] = useState<Set<string>>(new Set());
   const [setFilter, setSetFilter] = useState<Set<string>>(new Set());
@@ -481,6 +533,49 @@ export default function PokemonCollectionPage({
     );
     return () => subscription.unsubscribe();
   }, []);
+
+  // "Deseadas" shows demand aggregated across ALL users' wishlists (a "hot
+  // cards" leaderboard), not the current user's own list — so it loads once
+  // per view regardless of auth state.
+  useEffect(() => {
+    if (statusView !== "wishlist") return;
+    let cancelled = false;
+    setWishlistLoading(true);
+    fetch("/api/wishlist/demand")
+      .then((res) => res.json())
+      .then(({ data }) => {
+        if (!cancelled) setWishlistItems(data ?? []);
+      })
+      .finally(() => {
+        if (!cancelled) setWishlistLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [statusView]);
+
+  const filteredWishlist = useMemo(() => {
+    let list = [...wishlistItems];
+
+    if (variantFilter.size > 0) {
+      list = list.filter((i) => i.variant != null && variantFilter.has(i.variant));
+    }
+
+    if (setFilter.size > 0) {
+      list = list.filter((i) => i.set_name != null && setFilter.has(i.set_name));
+    }
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (i) =>
+          i.card_name.toLowerCase().includes(q) ||
+          i.set_name?.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [wishlistItems, variantFilter, setFilter, search]);
 
   const handleCardClick = useCallback(
     (id: string) => {
@@ -518,7 +613,7 @@ export default function PokemonCollectionPage({
     let list = [...cards];
 
     // Status
-    if (statusView !== "all") {
+    if (statusView !== "wishlist") {
       list = list.filter((c) => c.status === statusView);
     }
 
@@ -579,7 +674,7 @@ export default function PokemonCollectionPage({
             { key: "available", label: "Comprar" },
             { key: "hold", label: "Reservadas" },
             { key: "sold", label: "Vendidas" },
-            { key: "all", label: "Todas" },
+            { key: "wishlist", label: "Deseadas" },
           ] as const
         ).map((opt) => (
           <label key={opt.key} className="flex items-center gap-2 cursor-pointer group">
@@ -623,16 +718,18 @@ export default function PokemonCollectionPage({
         ))}
       </FilterSection>
 
-      <FilterSection title="Idioma" defaultOpen={false}>
-        {LANGUAGES.map((l) => (
-          <CheckItem
-            key={l.code}
-            label={`${l.flag} ${l.label}`}
-            checked={langFilter.has(l.code)}
-            onChange={() => setLangFilter((prev) => toggleSet(prev, l.code))}
-          />
-        ))}
-      </FilterSection>
+      {statusView !== "wishlist" && (
+        <FilterSection title="Idioma" defaultOpen={false}>
+          {LANGUAGES.map((l) => (
+            <CheckItem
+              key={l.code}
+              label={`${l.flag} ${l.label}`}
+              checked={langFilter.has(l.code)}
+              onChange={() => setLangFilter((prev) => toggleSet(prev, l.code))}
+            />
+          ))}
+        </FilterSection>
+      )}
 
       <FilterSection title="Set" defaultOpen={false}>
         <div className="relative mb-2">
@@ -666,43 +763,46 @@ export default function PokemonCollectionPage({
           ))}
       </FilterSection>
 
-      <FilterSection title="Condición" defaultOpen={false}>
-        {(["all", "graded", "raw"] as const).map((g) => (
-          <label key={g} className="flex items-center gap-2 cursor-pointer group">
-            <input
-              type="radio"
-              name="graded"
-              checked={gradedFilter === g}
-              onChange={() => setGradedFilter(g)}
-              className="sr-only"
-            />
-            <span
-              className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${
-                gradedFilter === g
-                  ? "border-brand"
-                  : "border-gray-700 group-hover:border-gray-500"
-              }`}
-            >
-              {gradedFilter === g && (
-                <span className="w-1.5 h-1.5 rounded-full bg-brand block" />
-              )}
-            </span>
-            <span className="text-xs text-gray-400 group-hover:text-white transition-colors capitalize">
-              {g === "all" ? "Todo" : g === "graded" ? "Clasificada" : "Sin clasificar"}
-            </span>
-          </label>
-        ))}
-      </FilterSection>
+      {statusView !== "wishlist" && (
+        <FilterSection title="Condición" defaultOpen={false}>
+          {(["all", "graded", "raw"] as const).map((g) => (
+            <label key={g} className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="radio"
+                name="graded"
+                checked={gradedFilter === g}
+                onChange={() => setGradedFilter(g)}
+                className="sr-only"
+              />
+              <span
+                className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${
+                  gradedFilter === g
+                    ? "border-brand"
+                    : "border-gray-700 group-hover:border-gray-500"
+                }`}
+              >
+                {gradedFilter === g && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand block" />
+                )}
+              </span>
+              <span className="text-xs text-gray-400 group-hover:text-white transition-colors capitalize">
+                {g === "all" ? "Todo" : g === "graded" ? "Clasificada" : "Sin clasificar"}
+              </span>
+            </label>
+          ))}
+        </FilterSection>
+      )}
 
-      {(statusView !== "all" || variantFilter.size > 0 || langFilter.size > 0 || setFilter.size > 0 || gradedFilter !== "all") && (
+      {(variantFilter.size > 0 || setFilter.size > 0 || (statusView !== "wishlist" && (langFilter.size > 0 || gradedFilter !== "all"))) && (
         <button
           type="button"
           onClick={() => {
-            setStatusView("all");
             setVariantFilter(new Set());
-            setLangFilter(new Set());
             setSetFilter(new Set());
-            setGradedFilter("all");
+            if (statusView !== "wishlist") {
+              setLangFilter(new Set());
+              setGradedFilter("all");
+            }
           }}
           className="text-[10px] font-bold text-gray-600 hover:text-brand transition-colors pt-2 flex items-center gap-1"
         >
@@ -806,7 +906,7 @@ export default function PokemonCollectionPage({
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               Filtros
-              {(statusView !== "all" || variantFilter.size > 0 || langFilter.size > 0 || gradedFilter !== "all") && (
+              {(variantFilter.size > 0 || setFilter.size > 0 || (statusView !== "wishlist" && (langFilter.size > 0 || gradedFilter !== "all"))) && (
                 <span className="w-1.5 h-1.5 rounded-full bg-brand" />
               )}
             </button>
@@ -851,68 +951,109 @@ export default function PokemonCollectionPage({
             </span>
           </div>
 
-          {/* Table header (desktop) */}
-          <div className="hidden lg:grid grid-cols-[2.5rem_1fr_130px_120px_110px_130px_80px_130px_64px] gap-3 px-4 py-2.5 border-b border-gray-800 text-[10px] font-bold uppercase tracking-widest text-gray-600">
-            <div className="text-center">#</div>
-            <div>Carta</div>
-            <div className="text-right">Precio</div>
-            <div className="text-right">Comprar</div>
-            <div className="text-right">Mktpl</div>
-            <div>Variante</div>
-            <div className="text-center">Idioma</div>
-            <div>Vendedor</div>
-            <div className="text-right">Publicado</div>
-          </div>
+          {statusView === "wishlist" ? (
+            <>
+              {/* Table header (desktop) */}
+              <div className="hidden lg:grid grid-cols-[2.5rem_1fr_140px_64px] gap-3 px-4 py-2.5 border-b border-gray-800 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                <div className="text-center">#</div>
+                <div>Carta</div>
+                <div className="text-right">Variante</div>
+                <div className="text-right">Deseos</div>
+              </div>
 
-          {/* Empty state */}
-          {filteredCards.length === 0 && (
-            <div className="py-20 text-center">
-              <p className="text-gray-500 text-sm">
-                {search ? `Sin resultados para "${search}"` : "No hay cartas con estos filtros."}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setStatusView("all");
-                  setVariantFilter(new Set());
-                  setLangFilter(new Set());
-                  setGradedFilter("all");
-                }}
-                className="mt-4 text-xs text-brand hover:underline"
-              >
-                Limpiar filtros
-              </button>
-            </div>
+              {wishlistLoading ? (
+                <div className="py-20 text-center">
+                  <Loader2 className="w-6 h-6 text-gray-700 animate-spin mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">Cargando…</p>
+                </div>
+              ) : filteredWishlist.length === 0 ? (
+                <div className="py-20 text-center">
+                  <Heart className="w-8 h-8 text-gray-800 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">
+                    {search
+                      ? `Sin resultados para "${search}"`
+                      : "Aún no hay cartas deseadas por la comunidad."}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="hidden lg:block">
+                    {filteredWishlist.map((item, i) => (
+                      <WishlistRow key={item.pokemon_tcg_id} item={item} index={i} />
+                    ))}
+                  </div>
+                  <div className="lg:hidden">
+                    {filteredWishlist.map((item, i) => (
+                      <MobileWishlistRow key={item.pokemon_tcg_id} item={item} index={i} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Table header (desktop) */}
+              <div className="hidden lg:grid grid-cols-[2.5rem_1fr_130px_120px_130px_80px_130px_64px] gap-3 px-4 py-2.5 border-b border-gray-800 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                <div className="text-center">#</div>
+                <div>Carta</div>
+                <div className="text-right">Precio</div>
+                <div className="text-right">Comprar</div>
+                <div>Variante</div>
+                <div className="text-center">Idioma</div>
+                <div>Vendedor</div>
+                <div className="text-right">Publicado</div>
+              </div>
+
+              {/* Empty state */}
+              {filteredCards.length === 0 && (
+                <div className="py-20 text-center">
+                  <p className="text-gray-500 text-sm">
+                    {search ? `Sin resultados para "${search}"` : "No hay cartas con estos filtros."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setVariantFilter(new Set());
+                      setLangFilter(new Set());
+                      setGradedFilter("all");
+                    }}
+                    className="mt-4 text-xs text-brand hover:underline"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
+              )}
+
+              {/* Desktop rows */}
+              <div className="hidden lg:block">
+                {filteredCards.map((card, i) => (
+                  <CardRow
+                    key={card.id}
+                    card={card}
+                    index={i}
+                    currentUserId={user?.id ?? null}
+                    onBuyClick={handleCardClick}
+                    cardFloor={floorByCard[cardKey(card)] ?? null}
+                  />
+                ))}
+              </div>
+
+              {/* Mobile rows */}
+              <div className="lg:hidden">
+                {filteredCards.map((card, i) => (
+                  <MobileCardRow
+                    key={card.id}
+                    card={card}
+                    index={i}
+                    currentUserId={user?.id ?? null}
+                    onBuyClick={handleCardClick}
+                    cardFloor={floorByCard[cardKey(card)] ?? null}
+                  />
+                ))}
+              </div>
+            </>
           )}
-
-          {/* Desktop rows */}
-          <div className="hidden lg:block">
-            {filteredCards.map((card, i) => (
-              <CardRow
-                key={card.id}
-                card={card}
-                index={i}
-                currentUserId={user?.id ?? null}
-                onBuyClick={handleCardClick}
-                cardFloor={floorByCard[cardKey(card)] ?? null}
-              />
-            ))}
-          </div>
-
-          {/* Mobile rows */}
-          <div className="lg:hidden">
-            {filteredCards.map((card, i) => (
-              <MobileCardRow
-                key={card.id}
-                card={card}
-                index={i}
-                currentUserId={user?.id ?? null}
-                onBuyClick={handleCardClick}
-                cardFloor={floorByCard[cardKey(card)] ?? null}
-              />
-            ))}
-          </div>
         </div>
 
         {/* Activity + sales chart (desktop) */}

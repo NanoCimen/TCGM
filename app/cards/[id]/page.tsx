@@ -143,16 +143,28 @@ export default async function CardDetailPage({
 
   // Fetch initial chat messages for buyer↔seller thread
   let initialMessages: ChatMessage[] = [];
+  // Seller's phone is only fetched for a logged-in, non-owner viewer — both
+  // because that's the only case it's needed, and because `phone` requires an
+  // authenticated session at the DB level (anon callers can't select it at all).
+  let sellerPhone: string | null = null;
   if (user && user.id !== card.seller_id) {
-    const { data: msgs } = await supabase
-      .from("messages")
-      .select("id, sender_id, receiver_id, content, read, created_at")
-      .eq("card_id", card.id)
-      .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${card.seller_id}),and(sender_id.eq.${card.seller_id},receiver_id.eq.${user.id})`
-      )
-      .order("created_at", { ascending: true });
+    const [{ data: msgs }, { data: sellerRow }] = await Promise.all([
+      supabase
+        .from("messages")
+        .select("id, sender_id, receiver_id, content, read, created_at")
+        .eq("card_id", card.id)
+        .or(
+          `and(sender_id.eq.${user.id},receiver_id.eq.${card.seller_id}),and(sender_id.eq.${card.seller_id},receiver_id.eq.${user.id})`
+        )
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("users")
+        .select("phone")
+        .eq("id", card.seller_id)
+        .maybeSingle<{ phone: string | null }>(),
+    ]);
     initialMessages = (msgs ?? []) as ChatMessage[];
+    sellerPhone = sellerRow?.phone ?? null;
   }
 
   const seller = Array.isArray(card.users) ? card.users[0] : card.users;
@@ -162,6 +174,7 @@ export default async function CardDetailPage({
       card={card}
       sellerId={card.seller_id}
       sellerName={seller?.display_name ?? "Vendedor"}
+      sellerPhone={sellerPhone}
       currentUserId={user?.id ?? null}
       existingOffer={existingOffer}
       lastSaleUsd={lastSaleRow?.price_usd ?? null}

@@ -58,6 +58,13 @@ export default function TerminosPage() {
           contrato directo y privado entre el comprador y el vendedor. TCGRD no presta
           servicios financieros ni actúa como intermediario de pagos regulado.
         </p>
+        <p>
+          Antes de comprar, comprador y vendedor pueden conversar mediante un chat integrado
+          en la página de cada carta. Una vez se cierra un trato (compra directa u oferta
+          aceptada), TCGRD abre automáticamente una conversación de WhatsApp entre ambas
+          partes, usando el número de teléfono que cada una haya agregado a su perfil, para
+          que coordinen la entrega y el pago por su cuenta.
+        </p>
       </LegalSection>
       <LegalDivider />
 
@@ -90,7 +97,10 @@ export default function TerminosPage() {
         ]} />
         <p>
           El vendedor es responsable de acordar con el comprador el método de pago y entrega,
-          la condición definitiva del artículo, y cualquier reclamación postventa.
+          la condición definitiva del artículo, y cualquier reclamación postventa. Si agrega un
+          número de teléfono a su perfil, acepta que este se comparta con el comprador
+          únicamente cuando se cierre un trato sobre uno de sus listados, para coordinar por
+          WhatsApp la entrega y el pago.
         </p>
       </LegalSection>
       <LegalDivider />
@@ -104,6 +114,11 @@ export default function TerminosPage() {
           "Completar el pago en la forma y el plazo pactados con el vendedor.",
           "Asumir los riesgos inherentes a las transacciones P2P entre particulares.",
         ]} />
+        <p>
+          Al confirmar una compra o recibir la aceptación de una oferta, el comprador acepta
+          que su número de teléfono (si lo agregó a su perfil) se comparta con el vendedor
+          correspondiente para coordinar por WhatsApp la entrega y el pago.
+        </p>
       </LegalSection>
       <LegalDivider />
 

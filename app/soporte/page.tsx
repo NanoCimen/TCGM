@@ -29,12 +29,17 @@ const FAQS: FAQ[] = [
   {
     category: "compraventa",
     q: "¿Cómo contacto a un vendedor?",
-    a: "En la página de detalle de cada carta hay un botón de contacto. Al hacer clic se abre el chat con el vendedor directamente en la plataforma. Coordinen el método de pago y entrega entre ustedes.",
+    a: "En la página de detalle de cada carta hay un chat integrado para escribirle directamente al vendedor y resolver dudas antes de comprar. Cuando decides comprar al precio de lista, o cuando el vendedor acepta tu oferta, TCGRD abre automáticamente un WhatsApp con un mensaje pre-escrito para que coordinen la entrega y el pago.",
+  },
+  {
+    category: "compraventa",
+    q: "¿Qué pasa después de comprar o de que me acepten una oferta?",
+    a: "En cuanto se cierra el trato (compra directa u oferta aceptada), TCGRD abre WhatsApp automáticamente con la otra persona, usando el número que cada uno agregó en su perfil, con un mensaje pre-escrito para coordinar entrega y pago. Si no ves la ventana de WhatsApp, revisa el pop-up bloqueado del navegador o vuelve a la carta/tu dashboard, donde queda un botón para reabrir el chat de WhatsApp.",
   },
   {
     category: "compraventa",
     q: "¿Qué hago si recibí una carta que no coincide con el listado?",
-    a: "Contacta al vendedor primero para resolver el problema directamente. Si no llegan a un acuerdo, puedes reportar el caso a soporte.tcgrd@gmail.com con fotos y detalles de la transacción. TCGRD revisará el caso y podrá suspender al vendedor si se comprueba mal comportamiento.",
+    a: "Contacta al vendedor primero para resolver el problema directamente (por el chat de la carta o por WhatsApp si ya cerraron el trato). Si no llegan a un acuerdo, escríbenos a soporte.tcgrd@gmail.com con fotos y detalles de la transacción. TCGRD revisará el caso y podrá suspender al vendedor si se comprueba mal comportamiento.",
   },
   {
     category: "compraventa",
@@ -45,7 +50,7 @@ const FAQS: FAQ[] = [
   {
     category: "busqueda",
     q: "¿Cómo funciona la wishlist?",
-    a: "En la sección Wishlist, busca cualquier carta de la base de datos oficial de Pokémon TCG y agrégala a tu lista. Cuando alguien publique esa carta en el mercado de TCGRD, recibirás una notificación automáticamente.",
+    a: "En la sección Wishlist, busca cualquier carta de la base de datos oficial de Pokémon TCG y agrégala a tu lista. Cuando alguien publique esa carta en el mercado de TCGRD, recibirás una notificación automáticamente. Además, la pestaña \"Buscadas\" en Tendencia (y en Mi Colección) muestra las cartas más deseadas por toda la comunidad, sin revelar quién las agregó.",
   },
   {
     category: "busqueda",
@@ -82,9 +87,14 @@ const FAQS: FAQ[] = [
   {
     category: "seguridad",
     q: "¿Cómo reporto una carta falsa o a un usuario malicioso?",
-    a: "Usa el botón \"Reportar\" en el listado o el perfil del usuario. También puedes escribirnos directamente a soporte.tcgrd@gmail.com con capturas de pantalla y detalles. Investigamos todos los reportes y actuamos con rapidez.",
+    a: "Escríbenos a soporte.tcgrd@gmail.com con capturas de pantalla, el enlace de la carta o el perfil, y los detalles del caso. Investigamos todos los reportes y podemos suspender cuentas cuando se comprueba mal comportamiento.",
   },
   // cuenta
+  {
+    category: "cuenta",
+    q: "¿Por qué me piden mi número de WhatsApp?",
+    a: "Lo usamos únicamente para el botón de WhatsApp que se abre cuando compras una carta o te aceptan una oferta, así la otra persona puede coordinar contigo la entrega y el pago. Es opcional, pero si no lo agregas, la otra parte no podrá contactarte automáticamente. Solo se comparte con la contraparte de un trato ya cerrado, nunca públicamente.",
+  },
   {
     category: "cuenta",
     q: "¿Cómo cambio mi foto de perfil o banner?",
