@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Command, Sun, Moon, Clock, X, Flame } from "lucide-react";
+import { Search, Command, Sun, Moon, Clock, X, Flame, Bell } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -788,54 +788,304 @@ function TrendingSection({
   );
 }
 
+// Static example data for the landing sections below — purely illustrative,
+// not sourced from the marketplace API.
+const BUY_ACTIVITY = [
+  { name: "Charizard VMAX Rainbow", price: "RD$18,900.00", hot: true },
+  { name: "Pikachu VMAX", price: "RD$3,540.00", hot: true },
+  { name: "Umbreon VMAX Alt Art", price: "RD$26,700.00", hot: false },
+  { name: "Mew ex 151", price: "RD$1,180.00", hot: true },
+  { name: "Gengar VMAX Alt Art", price: "RD$14,250.00", hot: false },
+];
+
+const MANAGE_ROWS: { name: string; price: string; status: string; offers: number }[] = [
+  { name: "Charizard ex", price: "RD$9,440.00", status: "Disponible", offers: 3 },
+  { name: "Blastoise VMAX", price: "RD$5,310.00", status: "Reservada", offers: 1 },
+  { name: "Rayquaza VMAX Alt Art", price: "RD$22,600.00", status: "Disponible", offers: 5 },
+  { name: "Mewtwo GX", price: "RD$2,950.00", status: "Vendida", offers: 0 },
+];
+
+function UploadSection() {
+  return (
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.3 }}
+      variants={fadeInUp}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
+    >
+      <div>
+        <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
+          Sube tus cartas para vender
+        </h2>
+        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+          Sube fotos de tus cartas, ponle el precio que quieras y publícalas
+          en el mercado en cuestión de minutos. Sin comisiones escondidas ni
+          procesos complicados.
+        </p>
+        <Link
+          href="/sell"
+          className="inline-block mt-8 bg-brand text-black font-bold px-6 py-3 rounded-xl hover:bg-[#00c64b] transition-all shadow-[0_4px_14px_0_rgba(0,229,89,0.25)] hover:shadow-[0_6px_20px_rgba(0,229,89,0.4)] hover:-translate-y-0.5"
+        >
+          Subir carta
+        </Link>
+      </div>
+
+      <div className="rounded-2xl border border-white/15 dark:border-white/10 bg-white/30 dark:bg-white/[0.03] backdrop-blur-xl p-6 max-w-sm w-full mx-auto lg:mx-0">
+        <div className="flex gap-4">
+          <CardThumbnail
+            src={null}
+            alt=""
+            className="w-20 h-28 rounded-lg border border-white/20 dark:border-white/10 flex-shrink-0"
+          />
+          <div className="flex-1 space-y-3 min-w-0">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
+                Nombre de la carta
+              </p>
+              <div className="h-9 rounded-lg border border-white/20 dark:border-white/10 bg-white/40 dark:bg-white/[0.04] px-3 flex items-center text-sm text-gray-500 dark:text-gray-400 truncate">
+                Charizard VMAX
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
+                Precio
+              </p>
+              <div className="h-9 rounded-lg border border-white/20 dark:border-white/10 bg-white/40 dark:bg-white/[0.04] px-3 flex items-center font-mono text-sm text-gray-900 dark:text-white">
+                RD$4,250.00
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 w-full bg-brand text-black text-sm font-bold text-center py-2.5 rounded-lg">
+          Publicar
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function BuySection() {
+  return (
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.3 }}
+      variants={fadeInUp}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
+    >
+      <div className="lg:order-1 rounded-3xl border border-black/10 dark:border-white/[0.06] bg-white/40 dark:bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/[0.05]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+            Actividad en vivo
+          </span>
+          <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
+        </div>
+        <div className="divide-y divide-black/[0.04] dark:divide-white/[0.03]">
+          {BUY_ACTIVITY.map((item) => (
+            <div key={item.name} className="flex items-center gap-3 px-6 py-3">
+              <CardThumbnail
+                src={null}
+                alt=""
+                className="w-8 h-11 rounded flex-shrink-0 border border-white/20 dark:border-white/10"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  {item.name}
+                </p>
+                <p className="text-[11px] font-mono text-gray-500 dark:text-gray-400">
+                  {item.price}
+                </p>
+              </div>
+              {item.hot && (
+                <span className="text-[9px] font-bold uppercase tracking-widest bg-brand text-black px-2.5 py-1 rounded-full flex-shrink-0">
+                  Comprar
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="lg:order-2">
+        <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
+          Compra las cartas que te interesan
+        </h2>
+        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+          Encuentra la carta específica que buscas, haz una oferta o
+          cómprala al instante antes que nadie más.
+        </p>
+        <Link
+          href="/#tendencia"
+          className="inline-block mt-8 border border-white/20 dark:border-white/15 text-gray-900 dark:text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
+        >
+          Ver mercado
+        </Link>
+      </div>
+    </motion.section>
+  );
+}
+
+function WishlistSection() {
+  return (
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.3 }}
+      variants={fadeInUp}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-28 text-center"
+    >
+      <h2 className="neon-heading uppercase mx-auto max-w-3xl text-xl sm:text-2xl lg:text-3xl">
+        Sé el primero en enterarte
+      </h2>
+      <p className="mx-auto mt-6 max-w-xl text-sm sm:text-base text-gray-500 dark:text-gray-400">
+        Guarda las cartas que te interesan en tu wishlist y recibe una
+        notificación al instante cuando alguien las publique en el mercado.
+      </p>
+
+      <div className="mx-auto mt-10 max-w-sm rounded-xl border border-white/15 dark:border-white/10 bg-white/40 dark:bg-white/[0.04] backdrop-blur-xl px-5 py-4 flex items-start gap-3 shadow-lg text-left">
+        <div className="w-9 h-9 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center flex-shrink-0">
+          <Bell className="w-4 h-4 text-brand" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-900 dark:text-white">
+            ¡Tu carta favorita fue publicada!
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Umbreon VMAX Alt Art ya está disponible
+          </p>
+        </div>
+        <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 flex-shrink-0">
+          ahora
+        </span>
+      </div>
+
+      <Link
+        href="/wishlist"
+        className="inline-block mt-8 border border-white/20 dark:border-white/15 text-gray-900 dark:text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
+      >
+        Ver mi wishlist
+      </Link>
+    </motion.section>
+  );
+}
+
+function ManageSection() {
+  return (
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.3 }}
+      variants={fadeInUp}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
+    >
+      <div>
+        <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
+          Gestiona tu colección y recibe ofertas
+        </h2>
+        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+          Mira todas tus cartas publicadas, su valor estimado, y recibe o
+          acepta ofertas directamente desde tu dashboard.
+        </p>
+        <Link
+          href="/dashboard"
+          className="inline-block mt-8 bg-brand text-black font-bold px-6 py-3 rounded-xl hover:bg-[#00c64b] transition-all shadow-[0_4px_14px_0_rgba(0,229,89,0.25)] hover:shadow-[0_6px_20px_rgba(0,229,89,0.4)] hover:-translate-y-0.5"
+        >
+          Ir a mis cartas
+        </Link>
+      </div>
+
+      <div className="rounded-2xl border border-black/10 dark:border-white/[0.06] bg-white/40 dark:bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
+        <div className="grid grid-cols-[minmax(160px,1fr)_100px_110px_90px] gap-4 px-5 pt-5 pb-3 border-b border-black/5 dark:border-white/[0.05] text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 font-mono">
+          <div>Carta</div>
+          <div className="text-right">Precio</div>
+          <div className="text-center">Estado</div>
+          <div className="text-right">Ofertas</div>
+        </div>
+        <div className="divide-y divide-black/[0.04] dark:divide-white/[0.03]">
+          {MANAGE_ROWS.map((row) => (
+            <div
+              key={row.name}
+              className="grid grid-cols-[minmax(160px,1fr)_100px_110px_90px] gap-4 px-5 py-3 items-center"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <CardThumbnail
+                  src={null}
+                  alt=""
+                  className="w-8 h-11 rounded flex-shrink-0 border border-white/20 dark:border-white/10"
+                />
+                <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  {row.name}
+                </span>
+              </div>
+              <div className="text-right font-mono text-sm text-gray-900 dark:text-white">
+                {row.price}
+              </div>
+              <div className="flex justify-center">
+                <StatusBadge status={row.status} />
+              </div>
+              <div className="text-right font-mono text-sm text-gray-900 dark:text-white">
+                {row.offers}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
 function Footer() {
-  const links = [
+  const items = [
+    { label: "© 2026", href: null },
+    { label: "Instagram", href: "https://www.instagram.com/tcg.rd/" },
     { label: "Soporte", href: "/soporte" },
-    { label: "Términos de Servicio", href: "/terminos" },
-    { label: "Privacidad", href: "/privacidad" },
+    { label: "Términos", href: "/terminos" },
   ];
 
   return (
-    <footer className="relative mt-auto py-8 transition-colors">
+    <footer className="relative mt-auto py-14 transition-colors">
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/20 to-transparent" />
       <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.015] backdrop-blur-xl -z-10" />
-      <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Image
-              src="/solo-logo.png"
-              alt="TCGRD"
-              width={24}
-              height={24}
-              className="h-6 w-6"
-            />
-            <span className="text-gray-400 dark:text-gray-500 text-xs ml-1 hidden sm:inline">
-              © 2026
-            </span>
-          </div>
+      <div className="max-w-[1400px] mx-auto px-6 lg:px-10 flex flex-col items-center text-center gap-6">
+        <h2
+          data-text="TCG RD"
+          className="footer-wordmark text-5xl md:text-6xl"
+        >
+          TCG RD
+        </h2>
 
-          <nav className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-            {links.map((link) =>
-              link.href.startsWith("/") ? (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="hover:text-brand transition-colors"
-                >
-                  {link.label}
+        <nav className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-mono text-gray-400 dark:text-gray-500">
+          {items.map((item, index) => (
+            <span key={item.label} className="flex items-center gap-x-2">
+              {index > 0 && (
+                <span aria-hidden className="text-gray-300 dark:text-gray-700">
+                  //
+                </span>
+              )}
+              {item.href === null ? (
+                <span>{item.label}</span>
+              ) : item.href.startsWith("/") ? (
+                <Link href={item.href} className="hover:text-brand transition-colors">
+                  {item.label}
                 </Link>
               ) : (
                 <a
-                  key={link.label}
-                  href={link.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="hover:text-brand transition-colors"
                 >
-                  {link.label}
+                  {item.label}
                 </a>
-              )
-            )}
-          </nav>
-        </div>
+              )}
+            </span>
+          ))}
+        </nav>
       </div>
     </footer>
   );
@@ -989,6 +1239,10 @@ export default function MarketplacePage({
           user={user}
         />
         <MissionSection />
+        <UploadSection />
+        <BuySection />
+        <WishlistSection />
+        <ManageSection />
       </main>
       <Footer />
       <AuthModal

@@ -68,6 +68,95 @@ body {
     0px 4px 20px rgba(var(--tcgrd-green), 0.3);
 }
 
+.footer-wordmark {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-jetbrains), "JetBrains Mono", monospace;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: rgb(var(--tcgrd-green));
+  text-shadow:
+    0px 1px 2px rgba(var(--tcgrd-green), 0.6),
+    0px 2px 10px rgba(var(--tcgrd-green), 0.5),
+    0px 4px 30px rgba(var(--tcgrd-green), 0.35);
+}
+
+/* Color-channel-split glitch copies, hidden until the keyframes flash them
+   briefly. Kept as pseudo-elements so the real text stays selectable/SEO'd. */
+.footer-wordmark::before,
+.footer-wordmark::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.footer-wordmark::before {
+  color: #ff2b6d;
+  clip-path: inset(0 0 55% 0);
+}
+
+.footer-wordmark::after {
+  color: #00e5ff;
+  clip-path: inset(45% 0 0 0);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .footer-wordmark::before {
+    animation: footer-glitch-before 3s steps(2, jump-none) infinite;
+  }
+  .footer-wordmark::after {
+    animation: footer-glitch-after 3s steps(2, jump-none) infinite;
+  }
+}
+
+/* Idle ~96% of the cycle; glitch flashes for ~90ms around the 97-99% mark (3s loop). */
+@keyframes footer-glitch-before {
+  0%, 96%, 100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 55% 0);
+  }
+  97% {
+    opacity: 0.8;
+    transform: translate(-2px, -1px);
+    clip-path: inset(10% 0 60% 0);
+  }
+  98% {
+    opacity: 0.8;
+    transform: translate(2px, 1px);
+    clip-path: inset(40% 0 20% 0);
+  }
+  99% {
+    opacity: 0.6;
+    transform: translate(-1px, 0);
+    clip-path: inset(0 0 70% 0);
+  }
+}
+
+@keyframes footer-glitch-after {
+  0%, 96%, 100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(45% 0 0 0);
+  }
+  97% {
+    opacity: 0.8;
+    transform: translate(2px, 1px);
+    clip-path: inset(50% 0 5% 0);
+  }
+  98% {
+    opacity: 0.8;
+    transform: translate(-2px, -1px);
+    clip-path: inset(20% 0 35% 0);
+  }
+  99% {
+    opacity: 0.6;
+    transform: translate(1px, 0);
+    clip-path: inset(60% 0 0 0);
+  }
+}
+
 @keyframes toastSlideIn {
   from {
     opacity: 0;
