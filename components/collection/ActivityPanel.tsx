@@ -26,7 +26,7 @@ export default function ActivityPanel({ sales }: { sales: SaleActivity[] }) {
     // Outer column stretches full height so the divider border reaches the
     // bottom; inner content sticks and scrolls independently.
     <aside className="hidden xl:block w-[380px] flex-shrink-0 border-l border-gray-800">
-      <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] flex flex-col">
+      <div className="sticky top-20 max-h-[calc(100vh-5rem)] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
             Actividad

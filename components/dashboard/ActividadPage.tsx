@@ -1,13 +1,38 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { ArrowDownLeft, ArrowUpRight, Package, TrendingUp, Wallet } from "lucide-react";
 import { OfferCard, formatDOP, type OfferWithDetails } from "./MyCardsDashboard";
+import { DashboardPageContainer, DashboardPageHeader } from "./DashboardPageShell";
+
+const ease = [0.25, 0.46, 0.45, 0.94] as const;
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+function formatShortDate(iso: string): string {
+  return new Intl.DateTimeFormat("es-DO", { day: "numeric", month: "short" }).format(
+    new Date(iso)
+  );
+}
 
 export default function ActividadPage({
+  avatarUrl,
+  initials,
   userId,
   asSellerOffers,
   asBuyerOffers,
 }: {
+  avatarUrl: string | null;
+  initials: string;
   userId: string;
   asSellerOffers: OfferWithDetails[];
   asBuyerOffers: OfferWithDetails[];
@@ -52,61 +77,111 @@ export default function ActividadPage({
     router.refresh();
   }
 
+  const stats = [
+    {
+      label: "Total transacciones",
+      value: String(allOffers.length),
+      icon: Package,
+    },
+    {
+      label: "Vendidas",
+      value: String(asSellerOffers.length),
+      icon: TrendingUp,
+    },
+    {
+      label: "Recaudado",
+      value: soldUsd > 0 ? formatDOP(soldUsd) : "—",
+      icon: Wallet,
+    },
+  ];
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-black tracking-tight text-white mb-1">Actividad</h1>
-        <p className="text-sm text-gray-500">Tus transacciones completadas</p>
-      </div>
+    <DashboardPageContainer>
+      <DashboardPageHeader
+        avatarUrl={avatarUrl}
+        initials={initials}
+        title="Actividad"
+        subtitle="Tus transacciones completadas"
+      />
 
       {/* Summary stats */}
       {allOffers.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          {[
-            { label: "Total transacciones", value: String(allOffers.length) },
-            { label: "Vendidas", value: String(asSellerOffers.length) },
-            {
-              label: "Recaudado",
-              value: soldUsd > 0 ? formatDOP(soldUsd) : "—",
-            },
-          ].map((s) => (
-            <div
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={staggerContainer}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8"
+        >
+          {stats.map((s) => (
+            <motion.div
               key={s.label}
-              className="bg-[#0d0d0d] border border-gray-800 rounded-2xl p-4"
+              variants={fadeInUp}
+              transition={{ duration: 0.4, ease }}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 flex items-center gap-4"
             >
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
-                {s.label}
-              </p>
-              <p className="text-base font-black text-white leading-tight">{s.value}</p>
-            </div>
+              <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center flex-shrink-0">
+                <s.icon className="w-[18px] h-[18px]" strokeWidth={2} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-mono text-xl font-bold text-white leading-tight truncate">
+                  {s.value}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-0.5">
+                  {s.label}
+                </p>
+              </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {allOffers.length === 0 ? (
-        <div className="text-center py-20">
-          <h3 className="text-xl font-extrabold text-white mb-2">Sin actividad aún</h3>
-          <p className="text-sm text-gray-500">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="flex flex-col items-center justify-center py-24 text-center"
+        >
+          <div className="w-16 h-16 rounded-full bg-white/[0.03] border border-white/[0.07] flex items-center justify-center mb-5">
+            <Package className="w-7 h-7 text-gray-700" strokeWidth={1.5} />
+          </div>
+          <p className="text-base font-bold text-gray-400 mb-2">Sin actividad aún</p>
+          <p className="text-sm text-gray-600 max-w-xs leading-relaxed">
             Las transacciones completadas aparecerán aquí.
           </p>
-        </div>
+        </motion.div>
       ) : (
-        <div className="space-y-4">
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={staggerContainer}
+          className="space-y-5"
+        >
           {allOffers.map(({ offer, role }) => (
-            <div key={offer.id}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mb-1.5 px-1">
-                {role === "seller" ? "Vendiste" : "Compraste"}
-              </p>
+            <motion.div key={offer.id} variants={fadeInUp} transition={{ duration: 0.4, ease }}>
+              <div className="flex items-center justify-between mb-1.5 px-1">
+                <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                  {role === "seller" ? (
+                    <ArrowUpRight className="w-3 h-3 text-brand" strokeWidth={2.5} />
+                  ) : (
+                    <ArrowDownLeft className="w-3 h-3 text-cyan-400" strokeWidth={2.5} />
+                  )}
+                  {role === "seller" ? "Vendiste" : "Compraste"}
+                </p>
+                <p className="text-[10px] font-medium text-gray-600">
+                  {formatShortDate(offer.responded_at ?? offer.created_at)}
+                </p>
+              </div>
               <OfferCard
                 offer={offer}
                 role={role}
                 onAction={handleOfferAction}
                 onMarkSold={handleMarkSold}
               />
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </DashboardPageContainer>
   );
 }

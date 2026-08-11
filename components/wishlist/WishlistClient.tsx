@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Plus, Search, X, Check, ShoppingBag, Loader2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import { DashboardPageContainer, DashboardPageHeader } from "@/components/dashboard/DashboardPageShell";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -360,11 +361,13 @@ export default function WishlistClient({
   displayName,
   email,
   avatarUrl,
+  themeColor = null,
 }: {
   initialItems: WishlistItem[];
   displayName: string;
   email: string;
   avatarUrl: string | null;
+  themeColor?: string | null;
 }) {
   const [items, setItems] = useState(initialItems);
   const [showModal, setShowModal] = useState(false);
@@ -403,37 +406,32 @@ export default function WishlistClient({
 
   return (
     <>
-      <DashboardShell active="wishlist" avatarUrl={avatarUrl} initials={initials}>
-        <div className="max-w-5xl mx-auto">
+      <DashboardShell active="wishlist" avatarUrl={avatarUrl} initials={initials} email={email} accentColor={themeColor}>
+        <DashboardPageContainer>
 
           {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease }}
-            className="flex items-center justify-between gap-4 mb-10"
-          >
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white">
-                Wishlist
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                {items.length === 0
-                  ? "Añade cartas para recibir alertas cuando estén disponibles"
-                  : `${items.length} carta${items.length !== 1 ? "s" : ""} · te avisamos cuando aparezcan en el mercado`}
-              </p>
-            </div>
-            <motion.button
-              type="button"
-              onClick={() => setShowModal(true)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 bg-brand text-black text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-[#00c64b] transition-colors shadow-[0_4px_14px_0_rgba(0,229,89,0.2)]"
-            >
-              <Plus className="w-4 h-4" strokeWidth={2.5} />
-              Agregar carta
-            </motion.button>
-          </motion.div>
+          <DashboardPageHeader
+            avatarUrl={avatarUrl}
+            initials={initials}
+            title="Wishlist"
+            subtitle={
+              items.length === 0
+                ? "Añade cartas para recibir alertas cuando estén disponibles"
+                : `${items.length} carta${items.length !== 1 ? "s" : ""} · te avisamos cuando aparezcan en el mercado`
+            }
+            actions={
+              <motion.button
+                type="button"
+                onClick={() => setShowModal(true)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2 bg-brand text-black text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-[#00c64b] transition-colors shadow-[0_4px_14px_0_rgba(0,229,89,0.2)]"
+              >
+                <Plus className="w-4 h-4" strokeWidth={2.5} />
+                Agregar carta
+              </motion.button>
+            }
+          />
 
           {/* Empty state */}
           {items.length === 0 && (
@@ -479,7 +477,7 @@ export default function WishlistClient({
               </AnimatePresence>
             </motion.div>
           )}
-        </div>
+        </DashboardPageContainer>
       </DashboardShell>
 
       {/* Search modal */}

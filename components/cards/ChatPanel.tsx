@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Send } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+
+const ease = [0.25, 0.46, 0.45, 0.94] as const;
 
 export type ChatMessage = {
   id: string;
@@ -31,7 +34,7 @@ export default function ChatPanel({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Fetch messages if no initial data
@@ -50,9 +53,12 @@ export default function ChatPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId, otherUserId]);
 
-  // Scroll to bottom when messages change
+  // Scroll the message list itself to its bottom when messages change —
+  // scrollIntoView() would also drag the whole page's scroll position down
+  // to bring this element into view, not just the chat's own list.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   // Real-time subscription
@@ -150,7 +156,7 @@ export default function ChatPanel({
       </div>
 
       {/* Messages */}
-      <div className="h-52 overflow-y-auto px-4 py-3 space-y-2 scroll-smooth">
+      <div ref={messagesRef} className="h-52 overflow-y-auto px-4 py-3 space-y-2 scroll-smooth">
         {loading ? (
           <div className="h-full flex items-center justify-center">
             <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
@@ -160,25 +166,32 @@ export default function ChatPanel({
             Empieza la conversación con {otherUserName}
           </p>
         ) : (
-          messages.map((msg) => {
-            const isOwn = msg.sender_id === currentUserId;
-            const isTemp = msg.id.startsWith("temp-");
-            return (
-              <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed transition-opacity ${
-                    isOwn
-                      ? "bg-brand text-black rounded-br-sm"
-                      : "bg-white/[0.07] text-gray-200 rounded-bl-sm"
-                  } ${isTemp ? "opacity-60" : "opacity-100"}`}
+          <AnimatePresence initial={false}>
+            {messages.map((msg) => {
+              const isOwn = msg.sender_id === currentUserId;
+              const isTemp = msg.id.startsWith("temp-");
+              return (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: isTemp ? 0.6 : 1, y: 0 }}
+                  transition={{ duration: 0.25, ease }}
+                  className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
                 >
-                  {msg.content}
-                </div>
-              </div>
-            );
-          })
+                  <div
+                    className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                      isOwn
+                        ? "bg-brand text-black rounded-br-sm"
+                        : "bg-white/[0.07] text-gray-200 rounded-bl-sm"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
@@ -192,12 +205,12 @@ export default function ChatPanel({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Escribe un mensaje..."
             maxLength={1000}
-            className="flex-1 bg-white/[0.04] border border-white/[0.07] rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-600 outline-none focus:border-brand/30 focus:ring-1 focus:ring-brand/10 transition-all"
+            className="flex-1 bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-2 text-xs text-white placeholder:text-gray-600 outline-none focus:border-brand/30 focus:ring-1 focus:ring-brand/10 transition-all"
           />
           <button
             type="submit"
             disabled={!input.trim() || sending}
-            className="w-8 h-8 flex items-center justify-center rounded-xl bg-brand text-black hover:bg-[#00c64b] transition-colors disabled:opacity-40 flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand text-black hover:bg-[#00c64b] transition-colors disabled:opacity-40 flex-shrink-0"
           >
             {sending ? (
               <Loader2 className="w-3 h-3 animate-spin" />

@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProfileSettings from "@/components/profile/ProfileSettings";
 
+export const dynamic = "force-dynamic";
+
 export default async function PerfilPage() {
   const supabase = await createClient();
   const {
@@ -13,7 +15,7 @@ export default async function PerfilPage() {
   const [{ data: profile }, { data: invites }] = await Promise.all([
     supabase
       .from("users")
-      .select("display_name, avatar_url, banner_url, phone")
+      .select("display_name, avatar_url, theme_color, phone")
       .eq("id", user.id)
       .single(),
     supabase
@@ -30,7 +32,7 @@ export default async function PerfilPage() {
       initialDisplayName={profile?.display_name ?? ""}
       initialPhone={profile?.phone ?? null}
       initialAvatarUrl={profile?.avatar_url ?? null}
-      initialBannerUrl={profile?.banner_url ?? null}
+      initialThemeColor={profile?.theme_color ?? "#00e559"}
       initialNotifications={{
         marketplace: user.user_metadata?.notif_marketplace ?? true,
         productUpdates: user.user_metadata?.notif_product_updates ?? true,

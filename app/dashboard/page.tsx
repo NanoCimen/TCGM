@@ -6,6 +6,8 @@ import MyCardsDashboard, {
   type RawMessage,
 } from "@/components/dashboard/MyCardsDashboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -38,7 +40,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase
       .from("users")
-      .select("display_name, avatar_url")
+      .select("display_name, avatar_url, theme_color")
       .eq("id", user.id)
       .single(),
     supabase
@@ -85,6 +87,7 @@ export default async function DashboardPage() {
       displayName={profile?.display_name ?? ""}
       email={user.email ?? ""}
       avatarUrl={profile?.avatar_url ?? null}
+      themeColor={profile?.theme_color ?? null}
       cards={(cards ?? []) as DashboardCard[]}
       receivedOffers={(receivedOffers ?? []) as unknown as OfferWithDetails[]}
       madeOffers={(madeOffers ?? []) as unknown as OfferWithDetails[]}

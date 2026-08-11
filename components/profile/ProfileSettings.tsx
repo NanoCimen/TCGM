@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Check, Info, Loader2, Move, Wallet } from "lucide-react";
+import { Camera, Check, Info, Loader2, Palette, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import { DashboardPageContainer, DashboardPageHeader } from "@/components/dashboard/DashboardPageShell";
 
 type Notifications = {
   marketplace: boolean;
@@ -77,13 +78,21 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+const THEME_COLORS = [
+  "#00e559",
+  "#00d1ff",
+  "#a855f7",
+  "#f59e0b",
+  "#f43f5e",
+];
+
 export default function ProfileSettings({
   userId,
   email,
   initialDisplayName,
   initialPhone,
   initialAvatarUrl,
-  initialBannerUrl,
+  initialThemeColor,
   initialNotifications,
   initialInvites,
 }: {
@@ -92,7 +101,7 @@ export default function ProfileSettings({
   initialDisplayName: string;
   initialPhone: string | null;
   initialAvatarUrl: string | null;
-  initialBannerUrl: string | null;
+  initialThemeColor: string;
   initialNotifications: Notifications;
   initialInvites: Invite[];
 }) {
@@ -104,23 +113,12 @@ export default function ProfileSettings({
   const [savedToast, setSavedToast] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
-  const [bannerUrl, setBannerUrl] = useState<string | null>(initialBannerUrl);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [mediaError, setMediaError] = useState("");
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
-  const [bannerPosition, setBannerPosition] = useState("50% 50%");
-  const [repositioning, setRepositioning] = useState(false);
-  const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
-  const savedPositionRef = useRef("50% 50%");
-
-  useEffect(() => {
-    const saved = localStorage.getItem(`banner_pos_${userId}`);
-    if (saved) setBannerPosition(saved);
-  }, [userId]);
+  const [themeColor, setThemeColor] = useState(initialThemeColor);
 
   const [notifications, setNotifications] =
     useState<Notifications>(initialNotifications);
@@ -135,45 +133,14 @@ export default function ProfileSettings({
     setTimeout(() => setSavedToast(false), 2500);
   }
 
-  function handleBannerPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!repositioning) return;
-    e.preventDefault();
-    const [px, py] = bannerPosition.split(" ").map(parseFloat);
-    dragStartRef.current = { x: e.clientX, y: e.clientY, posX: px ?? 50, posY: py ?? 50 };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function handleBannerPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!repositioning || !dragStartRef.current) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const dx = ((e.clientX - dragStartRef.current.x) / rect.width) * 100;
-    const dy = ((e.clientY - dragStartRef.current.y) / rect.height) * 100;
-    const newX = Math.max(0, Math.min(100, dragStartRef.current.posX - dx));
-    const newY = Math.max(0, Math.min(100, dragStartRef.current.posY - dy));
-    setBannerPosition(`${newX.toFixed(1)}% ${newY.toFixed(1)}%`);
-  }
-
-  function handleBannerPointerUp() {
-    dragStartRef.current = null;
-  }
-
-  function saveRepositionedBanner() {
-    localStorage.setItem(`banner_pos_${userId}`, bannerPosition);
-    savedPositionRef.current = bannerPosition;
-    setRepositioning(false);
-    showSavedToast();
-  }
-
-  async function uploadImage(file: File, kind: "avatar" | "banner") {
+  async function uploadAvatar(file: File) {
     setMediaError("");
-    const setUploading =
-      kind === "avatar" ? setUploadingAvatar : setUploadingBanner;
-    setUploading(true);
+    setUploadingAvatar(true);
 
     try {
       const supabase = createClient();
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${userId}/${kind}.${ext}`;
+      const path = `${userId}/avatar.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("profiles")
@@ -184,34 +151,18 @@ export default function ProfileSettings({
       const { data } = supabase.storage.from("profiles").getPublicUrl(path);
       const url = `${data.publicUrl}?v=${Date.now()}`;
 
-      const column = kind === "avatar" ? "avatar_url" : "banner_url";
-      const res = await fetch("/api/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [column]: url }),
-      });
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error ?? `Error ${res.status}`);
-      }
-
-      if (kind === "avatar") setAvatarUrl(url);
-      else setBannerUrl(url);
-      showSavedToast();
-      router.refresh();
+      // Only staged locally — persisted to the database when "Guardar cambios" is clicked.
+      setAvatarUrl(url);
     } catch (err) {
       setMediaError(
         err instanceof Error ? err.message : "No se pudo subir la imagen"
       );
     } finally {
-      setUploading(false);
+      setUploadingAvatar(false);
     }
   }
 
-  function handleFileChange(
-    e: React.ChangeEvent<HTMLInputElement>,
-    kind: "avatar" | "banner"
-  ) {
+  function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -223,7 +174,12 @@ export default function ProfileSettings({
       setMediaError("La imagen no puede pesar más de 5MB");
       return;
     }
-    uploadImage(file, kind);
+    uploadAvatar(file);
+  }
+
+  function handleSelectColor(hex: string) {
+    // Only staged locally — persisted to the database when "Guardar cambios" is clicked.
+    setThemeColor(hex);
   }
 
   async function handleSaveProfile(e: React.FormEvent) {
@@ -237,10 +193,17 @@ export default function ProfileSettings({
     }
 
     setSavingProfile(true);
+    const body: Record<string, string | null> = {
+      display_name: trimmed,
+      phone: phone.trim() || null,
+      theme_color: themeColor,
+    };
+    if (avatarUrl) body.avatar_url = avatarUrl;
+
     const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: trimmed, phone: phone.trim() || null }),
+      body: JSON.stringify(body),
     });
     const json = await res.json();
     setSavingProfile(false);
@@ -286,8 +249,15 @@ export default function ProfileSettings({
 
   return (
     <>
-    <DashboardShell active="perfil" avatarUrl={avatarUrl} initials={initials}>
-      <div className="max-w-2xl mx-auto space-y-10">
+    <DashboardShell active="perfil" avatarUrl={avatarUrl} initials={initials} email={email} accentColor={themeColor}>
+      <DashboardPageContainer>
+        <DashboardPageHeader
+          avatarUrl={avatarUrl}
+          initials={initials}
+          title="Perfil"
+          subtitle={email}
+        />
+        <div className="max-w-2xl space-y-10">
         {/* Perfil */}
         <section>
           <SectionTitle>Perfil</SectionTitle>
@@ -297,116 +267,17 @@ export default function ProfileSettings({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => handleFileChange(e, "avatar")}
-            />
-            <input
-              ref={bannerInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleFileChange(e, "banner")}
+              onChange={handleAvatarFileChange}
             />
 
             <form onSubmit={handleSaveProfile}>
-              {/* Banner */}
-              <div className="relative mb-12">
-                <div
-                  className={`relative w-full h-36 sm:h-44 rounded-xl bg-[#1a1a1a] overflow-hidden border transition-colors ${
-                    repositioning
-                      ? "border-brand/50 cursor-grab active:cursor-grabbing select-none"
-                      : "border-gray-800"
-                  }`}
-                  onPointerDown={handleBannerPointerDown}
-                  onPointerMove={handleBannerPointerMove}
-                  onPointerUp={handleBannerPointerUp}
-                >
-                  {bannerUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={bannerUrl}
-                      alt="Banner"
-                      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                      style={{ objectPosition: bannerPosition }}
-                      draggable={false}
-                    />
-                  )}
-
-                  {/* Upload button — hidden while repositioning */}
-                  {!repositioning && (
-                    <button
-                      type="button"
-                      onClick={() => bannerInputRef.current?.click()}
-                      disabled={uploadingBanner}
-                      className="absolute inset-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-black/20 transition-colors group/banner"
-                    >
-                      <span className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center group-hover/banner:bg-black/80 transition-colors">
-                        {uploadingBanner ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <Camera className="w-5 h-5" />
-                        )}
-                      </span>
-                    </button>
-                  )}
-
-                  {/* Drag hint */}
-                  {repositioning && (
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <span className="text-xs text-white/80 bg-black/50 px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
-                        Arrastra para ajustar
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Reposition / confirm controls */}
-                  {bannerUrl && !uploadingBanner && (
-                    <div className="absolute top-2 right-2 flex gap-1.5 z-10">
-                      {repositioning ? (
-                        <>
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => {
-                              setRepositioning(false);
-                              setBannerPosition(savedPositionRef.current);
-                            }}
-                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black/70 text-gray-300 hover:bg-black/90 backdrop-blur-sm transition-colors"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={saveRepositionedBanner}
-                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-brand text-black hover:bg-[#00c64b] transition-colors"
-                          >
-                            Listo
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={() => {
-                            savedPositionRef.current = bannerPosition;
-                            setRepositioning(true);
-                          }}
-                          className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black/60 text-white/80 hover:bg-black/80 backdrop-blur-sm transition-colors flex items-center gap-1.5"
-                        >
-                          <Move className="w-3 h-3" />
-                          Ajustar
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Avatar overlapping banner */}
+              {/* Avatar */}
+              <div className="flex items-center gap-4 mb-8">
                 <button
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="absolute -bottom-8 left-5 w-20 h-20 rounded-full border-4 border-[#111] overflow-hidden group/avatar"
+                  className="relative w-20 h-20 rounded-full border-4 border-[#111] overflow-hidden group/avatar flex-shrink-0"
                 >
                   {avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -428,6 +299,7 @@ export default function ProfileSettings({
                     </span>
                   </span>
                 </button>
+                <p className="text-xs text-gray-600">Haz clic para cambiar tu foto de perfil.</p>
               </div>
 
               {mediaError && (
@@ -475,33 +347,79 @@ export default function ProfileSettings({
                   >
                     WhatsApp <span className="text-gray-500 font-normal">(para coordinar entregas)</span>
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="8091234567"
-                      maxLength={15}
-                      className="flex-1 bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all"
-                    />
-                    <button
-                      type="submit"
-                      disabled={savingProfile}
-                      className="bg-brand text-black text-sm font-bold px-5 rounded-lg hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {savingProfile ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Guardar"
-                      )}
-                    </button>
-                  </div>
+                  <input
+                    id="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="8091234567"
+                    maxLength={15}
+                    className="w-full bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all"
+                  />
                   <p className="text-xs text-gray-600 mt-1.5">Solo visible para tu contraparte al cerrar un trato.</p>
-                  {profileError && (
-                    <p className="text-red-500 text-xs mt-2">{profileError}</p>
-                  )}
                 </div>
+              </div>
+
+              {/* Mi colección — accent color */}
+              <div className="mt-6 pt-6 border-t border-gray-800">
+                <p className="text-sm font-bold text-white mb-2">Mi colección</p>
+                <p className="text-sm text-gray-500 mb-4">
+                  Elige el color de acento que se usa en el fondo de tu sección Mi colección.
+                </p>
+
+                <div
+                  className="w-full h-20 rounded-xl mb-5 border border-gray-800"
+                  style={{
+                    background: `radial-gradient(circle at 25% 35%, ${themeColor}66, transparent 60%), radial-gradient(circle at 75% 65%, ${themeColor}40, transparent 65%), #0a0a0a`,
+                  }}
+                />
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {THEME_COLORS.map((c) => {
+                    const isSelected = themeColor.toLowerCase() === c.toLowerCase();
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => handleSelectColor(c)}
+                        aria-label={c}
+                        className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 ${
+                          isSelected ? "border-white scale-110" : "border-transparent"
+                        }`}
+                        style={{ backgroundColor: c }}
+                      >
+                        {isSelected && <Check className="w-4 h-4 text-black" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+
+                  <label className="relative w-9 h-9 rounded-full border-2 border-gray-700 overflow-hidden cursor-pointer flex items-center justify-center bg-[#1a1a1a] hover:border-gray-500 transition-colors">
+                    <input
+                      type="color"
+                      value={themeColor}
+                      onChange={(e) => handleSelectColor(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <Palette className="w-4 h-4 text-gray-400" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-6 pt-6 border-t border-gray-800">
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="bg-brand text-black text-sm font-bold px-6 py-3 rounded-lg hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingProfile ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Guardar cambios"
+                  )}
+                </button>
+                {profileError && (
+                  <p className="text-red-500 text-xs">{profileError}</p>
+                )}
               </div>
             </form>
           </SectionCard>
@@ -660,7 +578,8 @@ export default function ProfileSettings({
             </div>
           </SectionCard>
         </section>
-      </div>
+        </div>
+      </DashboardPageContainer>
     </DashboardShell>
 
     <AnimatePresence>

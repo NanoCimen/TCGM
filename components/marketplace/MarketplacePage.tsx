@@ -4,14 +4,14 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Command, Sun, Moon, Clock, X, Flame, Bell } from "lucide-react";
+import { Clock, X, Flame, Bell } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
-import AuthMenu from "@/components/auth/AuthMenu";
-import NotificationsBell from "@/components/notifications/NotificationsBell";
 import { createClient } from "@/lib/supabase/client";
 import CardThumbnail from "./CardThumbnail";
+import Navbar from "./Navbar";
+import AmbientGlow from "./AmbientGlow";
 import type {
   MarketplaceStats,
   TrendingCard,
@@ -42,125 +42,6 @@ const staggerContainer = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.08 } },
 };
-
-function AmbientGlow() {
-  return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="absolute -top-32 left-[8%] h-[420px] w-[420px] rounded-full bg-brand/10 dark:bg-brand/20 blur-[130px]" />
-      <div className="absolute top-[28%] -right-40 h-[560px] w-[560px] rounded-full bg-brand/[0.08] dark:bg-brand/[0.14] blur-[150px]" />
-      <div className="absolute bottom-[-10%] left-[20%] h-[480px] w-[480px] rounded-full bg-brand/[0.06] dark:bg-brand/[0.12] blur-[140px]" />
-      <div className="absolute inset-0 bg-white/0 dark:bg-black/10" />
-    </div>
-  );
-}
-
-function Navbar({
-  isDark,
-  toggleDark,
-  search,
-  onSearchChange,
-  user,
-  avatarUrl,
-  onAuthSelect,
-}: {
-  isDark: boolean;
-  toggleDark: () => void;
-  search: string;
-  onSearchChange: (value: string) => void;
-  user: User | null;
-  avatarUrl: string | null;
-  onAuthSelect: (mode: AuthMode) => void;
-}) {
-  return (
-    <nav className="sticky top-0 z-50 bg-white/30 dark:bg-[#0a0a0a]/30 backdrop-blur-2xl backdrop-saturate-[1.8] border-b border-white/20 dark:border-white/[0.06] shadow-[0_1px_0_rgba(0,229,89,0.08)] h-20 transition-colors">
-      <div className="max-w-[1400px] mx-auto px-6 lg:px-10 h-full flex items-center justify-between">
-        <div className="flex items-center gap-12">
-          <Link href="/" className="flex items-center group">
-            <Image
-              src="/solo-logo.png"
-              alt="TCGRD"
-              width={36}
-              height={36}
-              className="h-9 w-9 group-hover:scale-105 transition-transform"
-            />
-          </Link>
-
-          <div className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/"
-              className="text-gray-900 dark:text-white font-semibold text-sm tracking-tight border-b-2 border-brand py-[30px]"
-            >
-              Mercado
-            </Link>
-            <Link
-              href="/dashboard"
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-semibold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
-            >
-              Mis cartas
-            </Link>
-            <Link
-              href="/collection/pokemon"
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-semibold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
-            >
-              Actividad
-            </Link>
-            <a
-              href="https://www.instagram.com/tcg.rd/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-semibold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
-            >
-              Nosotros
-            </a>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={toggleDark}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-500 dark:text-gray-400"
-          >
-            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-
-          <div className="relative hidden lg:flex items-center w-72">
-            <Search className="absolute left-3 w-4 h-4 text-gray-400 dark:text-gray-500" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Buscar cartas y vendedores"
-              className="w-full bg-white/40 dark:bg-white/[0.04] backdrop-blur-md border border-white/30 dark:border-white/10 rounded-lg py-2 pl-10 pr-12 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-brand/60 focus:bg-white/70 dark:focus:bg-white/[0.06] transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 dark:text-white"
-            />
-            <div className="absolute right-2 flex items-center bg-white/60 dark:bg-white/[0.06] backdrop-blur-sm rounded border border-white/40 dark:border-white/10 px-1.5 py-0.5">
-              <Command className="w-3 h-3 text-gray-400 dark:text-gray-500" />
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono font-bold ml-0.5 mt-[1px]">
-                K
-              </span>
-            </div>
-          </div>
-          {user && <NotificationsBell />}
-          {user && (
-            <Link
-              href="/sell"
-              className="bg-brand text-black text-sm font-bold tracking-tight px-5 sm:px-6 py-2.5 rounded-lg hover:bg-[#00c64b] transition-all shadow-[0_4px_14px_0_rgba(0,229,89,0.25)] hover:shadow-[0_6px_20px_rgba(0,229,89,0.4)] hover:-translate-y-0.5 whitespace-nowrap"
-            >
-              + Vender
-            </Link>
-          )}
-          <AuthMenu
-            isDark={isDark}
-            user={user}
-            avatarUrl={avatarUrl}
-            onSelectLogin={() => onAuthSelect("login")}
-            onSelectRegister={() => onAuthSelect("register")}
-          />
-        </div>
-      </div>
-    </nav>
-  );
-}
 
 function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -1220,16 +1101,19 @@ export default function MarketplacePage({
   }, [trendingCards, search]);
 
   return (
-    <div className="min-h-screen flex flex-col selection:bg-brand/20">
+    <div className="min-h-screen flex flex-col selection:bg-brand/20 pt-20">
       <AmbientGlow />
       <Navbar
         isDark={isDark}
         toggleDark={() => setIsDark(!isDark)}
         search={search}
         onSearchChange={setSearch}
-        user={user}
+        loggedIn={!!user}
+        email={user?.email ?? null}
         avatarUrl={avatarUrl}
         onAuthSelect={openAuth}
+        revealOnScrollStop
+        showSearch={false}
       />
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 lg:px-10 mt-12">
         <CollectionsSection stats={stats} />

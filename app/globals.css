@@ -5,7 +5,9 @@
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
-  overflow-x: hidden;
+  /* clip (not hidden) — hidden implicitly creates a scroll container on this
+     axis, which breaks position: sticky on descendants like the navbar */
+  overflow-x: clip;
 }
 
 button,
@@ -23,7 +25,7 @@ a[href]:focus-visible,
 }
 
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
   position: relative;
 }

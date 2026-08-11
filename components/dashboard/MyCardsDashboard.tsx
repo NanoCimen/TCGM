@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, CheckCheck, Loader2, MessageCircle, Pencil, Plus, Trash2, TrendingDown, TrendingUp, X } from "lucide-react";
-import DashboardShell, { Avatar } from "./DashboardShell";
+import DashboardShell from "./DashboardShell";
+import { DashboardPageContainer, DashboardPageHeader } from "./DashboardPageShell";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
 import { formatPrice, USD_TO_DOP } from "@/lib/marketplace/utils";
 import { openOfferAcceptedBuyerWhatsApp, openOfferAcceptedWhatsApp } from "@/lib/marketplace/whatsapp";
@@ -58,6 +59,8 @@ export type OfferWithDetails = {
 
 type TabKey = "coleccion" | "reservadas" | "ventas" | "ofertas-recibidas" | "ofertas-hechas" | "mensajes" | "actividad";
 
+const TAB_KEYS: TabKey[] = ["coleccion", "reservadas", "ventas", "ofertas-recibidas", "ofertas-hechas", "mensajes", "actividad"];
+
 type PublishModalData = { cardId: string; cardName: string; priceUsd: number | null };
 type DeleteModalData = { cardId: string; cardName: string };
 
@@ -84,14 +87,14 @@ const STATUS_DOT: Record<string, string> = {
   hold: "bg-amber-400",
 };
 
-const OFFER_STATUS_BADGE: Record<string, string> = {
+export const OFFER_STATUS_BADGE: Record<string, string> = {
   pending: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
   accepted: "bg-brand/10 text-brand border border-brand/20",
   declined: "bg-red-500/10 text-red-400 border border-red-500/20",
   cancelled: "bg-gray-800 text-gray-500",
 };
 
-const OFFER_STATUS_LABEL: Record<string, string> = {
+export const OFFER_STATUS_LABEL: Record<string, string> = {
   pending: "Pendiente",
   accepted: "Aceptada",
   declined: "Rechazada",
@@ -130,7 +133,7 @@ export function OfferCard({
   }
 
   return (
-    <div className="bg-[#111] border border-gray-800 rounded-2xl p-4 flex gap-4">
+    <div className="bg-white/[0.03] border border-white/10 backdrop-blur-xl rounded-2xl p-4 flex gap-4 hover:bg-white/[0.05] transition-colors">
       {/* Card thumbnail */}
       {card && (
         <Link href={`/cards/${card.id}`} className="flex-shrink-0">
@@ -400,6 +403,7 @@ export default function MyCardsDashboard({
   displayName,
   email,
   avatarUrl,
+  themeColor = null,
   cards,
   receivedOffers,
   madeOffers,
@@ -410,6 +414,7 @@ export default function MyCardsDashboard({
   displayName: string;
   email: string;
   avatarUrl: string | null;
+  themeColor?: string | null;
   cards: DashboardCard[];
   receivedOffers: OfferWithDetails[];
   madeOffers: OfferWithDetails[];
@@ -418,7 +423,11 @@ export default function MyCardsDashboard({
   allMessages?: RawMessage[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<TabKey>("coleccion");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [tab, setTab] = useState<TabKey>(
+    TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "coleccion"
+  );
 
   const [publishModal, setPublishModal] = useState<PublishModalData | null>(null);
   const [publishPriceInput, setPublishPriceInput] = useState("");
@@ -610,45 +619,35 @@ export default function MyCardsDashboard({
   }
 
   return (
-    <DashboardShell active="mis-cartas" avatarUrl={avatarUrl} initials={initials}>
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
-          <div className="flex items-center gap-4 min-w-0">
-            <Avatar
-              avatarUrl={avatarUrl}
-              initials={initials}
-              sizeClass="w-14 h-14"
-              textClass="text-lg"
-            />
-            <div className="min-w-0">
-              <h1 className="text-2xl font-black tracking-tight text-white truncate">
-                {name}
-              </h1>
-              <p className="text-sm text-gray-500 truncate">{email}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/perfil"
-              className="flex items-center gap-2 bg-white text-black text-sm font-bold px-4 py-2.5 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Editar perfil
-            </Link>
-            <Link
-              href="/sell"
-              className="flex items-center gap-2 bg-brand text-black text-sm font-bold px-4 py-2.5 rounded-lg hover:bg-[#00c64b] transition-colors"
-            >
-              <Plus className="w-4 h-4" strokeWidth={2.5} />
-              Subir cartas
-            </Link>
-          </div>
-        </div>
+    <DashboardShell active="mis-cartas" avatarUrl={avatarUrl} initials={initials} email={email} accentColor={themeColor}>
+      <DashboardPageContainer>
+        <DashboardPageHeader
+          avatarUrl={avatarUrl}
+          initials={initials}
+          title={name}
+          subtitle={email}
+          actions={
+            <>
+              <Link
+                href="/perfil"
+                className="flex items-center gap-2 bg-white text-black text-sm font-bold px-4 py-2.5 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Editar perfil
+              </Link>
+              <Link
+                href="/sell"
+                className="flex items-center gap-2 bg-brand text-black text-sm font-bold px-4 py-2.5 rounded-lg hover:bg-[#00c64b] transition-colors"
+              >
+                <Plus className="w-4 h-4" strokeWidth={2.5} />
+                Subir cartas
+              </Link>
+            </>
+          }
+        />
 
         {/* Tabs */}
-        <div className="flex items-center gap-6 border-b border-gray-800 mb-8 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-gray-800 mb-8">
           {TABS.map((t) => {
             const isActive = tab === t.key;
             return (
@@ -1096,7 +1095,7 @@ export default function MyCardsDashboard({
             )}
           </>
         )}
-      </div>
+      </DashboardPageContainer>
 
       {/* Publish modal */}
       {publishModal && (

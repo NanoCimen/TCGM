@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { searchCardPrice } from "@/lib/api/tcggo";
 import CardDetailClient from "@/components/cards/CardDetailClient";
 import type { CardStatus } from "@/lib/supabase/types";
-import type { ChatMessage } from "@/components/cards/ChatPanel";
+import type { OfferWithDetails } from "@/components/dashboard/MyCardsDashboard";
 
 export async function generateMetadata({
   params,
@@ -118,16 +117,6 @@ export default async function CardDetailPage({
     .limit(1)
     .maybeSingle<{ price_usd: number | null }>();
 
-  const skipLive = card.language === "JP" || card.language === "KR";
-  const livePrice =
-    !skipLive && card.card_name
-      ? await searchCardPrice(
-          card.card_name,
-          card.card_number ?? undefined,
-          card.variant ?? undefined
-        )
-      : null;
-
   // Check if the current user already has a pending offer on this card
   let existingOffer: { id: string; offer_price: number } | null = null;
   if (user && user.id !== card.seller_id) {
@@ -141,33 +130,45 @@ export default async function CardDetailPage({
     existingOffer = data ?? null;
   }
 
-  // Fetch initial chat messages for buyer↔seller thread
-  let initialMessages: ChatMessage[] = [];
   // Seller's phone is only fetched for a logged-in, non-owner viewer — both
   // because that's the only case it's needed, and because `phone` requires an
   // authenticated session at the DB level (anon callers can't select it at all).
   let sellerPhone: string | null = null;
   if (user && user.id !== card.seller_id) {
-    const [{ data: msgs }, { data: sellerRow }] = await Promise.all([
-      supabase
-        .from("messages")
-        .select("id, sender_id, receiver_id, content, read, created_at")
-        .eq("card_id", card.id)
-        .or(
-          `and(sender_id.eq.${user.id},receiver_id.eq.${card.seller_id}),and(sender_id.eq.${card.seller_id},receiver_id.eq.${user.id})`
-        )
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("users")
-        .select("phone")
-        .eq("id", card.seller_id)
-        .maybeSingle<{ phone: string | null }>(),
-    ]);
-    initialMessages = (msgs ?? []) as ChatMessage[];
+    const { data: sellerRow } = await supabase
+      .from("users")
+      .select("phone")
+      .eq("id", card.seller_id)
+      .maybeSingle<{ phone: string | null }>();
     sellerPhone = sellerRow?.phone ?? null;
   }
 
   const seller = Array.isArray(card.users) ? card.users[0] : card.users;
+
+  // Offers made on this specific card — only the seller gets to see them.
+  let cardOffers: OfferWithDetails[] = [];
+  if (user && user.id === card.seller_id) {
+    const { data } = await supabase
+      .from("offers")
+      .select(
+        `
+        id,
+        card_id,
+        offer_price,
+        message,
+        status,
+        is_buy_now,
+        created_at,
+        responded_at,
+        cards ( id, card_name, set_name, image_url, official_image_url, price_usd ),
+        buyer:users!buyer_id ( id, display_name, phone ),
+        seller:users!seller_id ( id, display_name, phone )
+      `
+      )
+      .eq("card_id", card.id)
+      .order("created_at", { ascending: false });
+    cardOffers = (data ?? []) as unknown as OfferWithDetails[];
+  }
 
   return (
     <CardDetailClient
@@ -178,8 +179,7 @@ export default async function CardDetailPage({
       currentUserId={user?.id ?? null}
       existingOffer={existingOffer}
       lastSaleUsd={lastSaleRow?.price_usd ?? null}
-      livePrice={livePrice}
-      initialMessages={initialMessages}
+      cardOffers={cardOffers}
     />
   );
 }

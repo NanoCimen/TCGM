@@ -1,35 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
-import {
-  Activity,
-  Heart,
-  Home,
-  Layers,
-  LogOut,
-  User as UserIcon,
-} from "lucide-react";
-import NotificationsBell from "@/components/notifications/NotificationsBell";
+import { Activity, Heart, Layers, LogOut, User as UserIcon } from "lucide-react";
+import Navbar from "@/components/marketplace/Navbar";
+import AmbientGlow from "@/components/marketplace/AmbientGlow";
 import SignOutConfirmModal from "@/components/auth/SignOutConfirmModal";
 import { createClient } from "@/lib/supabase/client";
 
-export type DashboardNavKey =
-  | "inicio"
-  | "mis-cartas"
-  | "actividad"
-  | "wishlist"
-  | "perfil";
+export type DashboardNavKey = "mis-cartas" | "actividad" | "wishlist" | "perfil";
 
 const NAV_ITEMS: {
   key: DashboardNavKey;
   label: string;
   href: string;
-  icon: typeof Home;
+  icon: typeof Layers;
 }[] = [
-  { key: "inicio", label: "Inicio", href: "/", icon: Home },
   { key: "mis-cartas", label: "Mis cartas", href: "/dashboard", icon: Layers },
   { key: "actividad", label: "Actividad", href: "/actividad", icon: Activity },
   { key: "wishlist", label: "Wishlist", href: "/wishlist", icon: Heart },
@@ -71,15 +58,36 @@ export default function DashboardShell({
   active,
   avatarUrl,
   initials,
+  email = null,
+  accentColor = null,
   children,
 }: {
   active: DashboardNavKey | null;
   avatarUrl: string | null;
   initials: string;
+  email?: string | null;
+  accentColor?: string | null;
   children: React.ReactNode;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [isDark, setIsDark] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("tcgrd-theme");
+    if (saved === "light") setIsDark(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("tcgrd-theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("tcgrd-theme", "light");
+    }
+  }, [isDark]);
 
   async function confirmSignOut() {
     setSigningOut(true);
@@ -89,30 +97,26 @@ export default function DashboardShell({
   }
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-brand/20">
-      <header className="sticky top-0 z-50 bg-black border-b border-white/5 h-16">
-        <div className="px-4 sm:px-6 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/solo-logo.png"
-              alt="TCGRD"
-              width={32}
-              height={32}
-              className="h-8 w-8"
-            />
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <NotificationsBell />
-            <Link href="/perfil" aria-label="Perfil">
-              <Avatar avatarUrl={avatarUrl} initials={initials} />
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen text-white selection:bg-brand/20">
+      <AmbientGlow color={accentColor ?? "#00e559"} />
+      <Navbar
+        isDark={isDark}
+        toggleDark={() => setIsDark(!isDark)}
+        search={search}
+        onSearchChange={setSearch}
+        loggedIn
+        email={email}
+        avatarUrl={avatarUrl}
+        onAuthSelect={() => {}}
+        showThemeToggle={false}
+        showSearch={false}
+        showSell={false}
+        tightNav
+        sticky
+      />
 
       <div className="flex">
-        <aside className="hidden md:flex flex-col w-56 lg:w-60 flex-shrink-0 border-r border-white/5 bg-[#0a0a0a] fixed top-16 bottom-0 left-0 z-40 py-6 px-3">
+        <aside className="hidden md:flex flex-col w-56 lg:w-60 flex-shrink-0 border-r border-white/5 bg-[#0a0a0a] fixed top-20 bottom-0 left-0 z-40 py-6 px-3">
           <nav className="space-y-1 flex-1 overflow-y-auto">
             {NAV_ITEMS.map((item) => {
               const isActive = item.key === active;

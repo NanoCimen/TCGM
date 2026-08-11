@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import WishlistClient, { type WishlistItem } from "@/components/wishlist/WishlistClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function WishlistPage() {
   const supabase = await createClient();
   const {
@@ -10,7 +12,7 @@ export default async function WishlistPage() {
   if (!user) redirect("/");
 
   const [{ data: profile }, { data: rows }] = await Promise.all([
-    supabase.from("users").select("display_name, avatar_url").eq("id", user.id).single(),
+    supabase.from("users").select("display_name, avatar_url, theme_color").eq("id", user.id).single(),
     supabase
       .from("wishlist")
       .select("id, pokemon_tcg_id, card_name, card_number, set_name, image_url, variant, created_at")
@@ -43,6 +45,7 @@ export default async function WishlistPage() {
       displayName={profile?.display_name ?? ""}
       email={user.email ?? ""}
       avatarUrl={profile?.avatar_url ?? null}
+      themeColor={profile?.theme_color ?? null}
     />
   );
 }

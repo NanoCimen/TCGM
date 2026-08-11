@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CircleUser } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import SignOutConfirmModal from "@/components/auth/SignOutConfirmModal";
 
 type AuthMenuProps = {
   isDark: boolean;
-  user: User | null;
+  loggedIn: boolean;
+  email: string | null;
   avatarUrl: string | null;
   onSelectLogin: () => void;
   onSelectRegister: () => void;
@@ -18,7 +18,8 @@ type AuthMenuProps = {
 
 export default function AuthMenu({
   isDark,
-  user,
+  loggedIn,
+  email,
   avatarUrl,
   onSelectLogin,
   onSelectRegister,
@@ -114,14 +115,14 @@ export default function AuthMenu({
             }`}
           >
             <div className="p-2">
-              {user ? (
+              {loggedIn ? (
                 <>
                   <p
                     className={`px-4 py-2 text-xs truncate ${
                       isDark ? "text-gray-500" : "text-gray-400"
                     }`}
                   >
-                    {user.email}
+                    {email}
                   </p>
                   <Link
                     href="/perfil"

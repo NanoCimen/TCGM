@@ -26,7 +26,7 @@ export default function SimpleDashboardPage({
   const initials = name.substring(0, 2).toUpperCase();
 
   return (
-    <DashboardShell active={active} avatarUrl={avatarUrl} initials={initials}>
+    <DashboardShell active={active} avatarUrl={avatarUrl} initials={initials} email={email}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-4 mb-10">
           <Avatar

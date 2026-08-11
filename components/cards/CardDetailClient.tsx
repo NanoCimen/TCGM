@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCheck, ChevronDown, Heart, Loader2, MessageCircle, Star, Tag, X } from "lucide-react";
+import { ArrowLeft, CheckCheck, ChevronDown, Heart, Loader2, MessageCircle, Star, X } from "lucide-react";
 import { openBuyNowWhatsApp } from "@/lib/marketplace/whatsapp";
 import { createClient } from "@/lib/supabase/client";
-import AuthModal from "@/components/auth/AuthModal";
-import ChatPanel, { type ChatMessage } from "./ChatPanel";
+import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
+import AuthMenu from "@/components/auth/AuthMenu";
 import {
   motion,
   AnimatePresence,
@@ -19,8 +18,12 @@ import {
 } from "framer-motion";
 import { formatPrice, USD_TO_DOP } from "@/lib/marketplace/utils";
 import { LANGUAGE_FLAG, VARIANT_BADGE_STYLES } from "@/lib/cards/constants";
-import type { TCGPriceResult } from "@/lib/api/tcggo";
 import type { CardStatus } from "@/lib/supabase/types";
+import {
+  OFFER_STATUS_BADGE,
+  OFFER_STATUS_LABEL,
+  type OfferWithDetails,
+} from "@/components/dashboard/MyCardsDashboard";
 
 export type CardDetailData = {
   id: string;
@@ -41,7 +44,7 @@ export type CardDetailData = {
   grade_company: string | null;
 };
 
-type AccordionKey = "detalles" | "precios" | "notas";
+type AccordionKey = "detalles" | "notas";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "En portafolio",
@@ -116,6 +119,8 @@ function TiltCard({
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.3 }}
       className="relative cursor-pointer"
     >
       {/* Holo border glow */}
@@ -174,7 +179,7 @@ function StatChip({
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
       className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-3.5 cursor-default"
     >
-      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-gray-600 mb-1.5">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">
         {label}
       </p>
       <p className="text-sm font-black text-white leading-none truncate">{value}</p>
@@ -251,8 +256,7 @@ export default function CardDetailClient({
   currentUserId: initialUserId,
   existingOffer,
   lastSaleUsd,
-  livePrice,
-  initialMessages = [],
+  cardOffers = [],
 }: {
   card: CardDetailData;
   sellerId: string;
@@ -261,12 +265,14 @@ export default function CardDetailClient({
   currentUserId: string | null;
   existingOffer: { id: string; offer_price: number } | null;
   lastSaleUsd: number | null;
-  livePrice: TCGPriceResult | null;
-  initialMessages?: ChatMessage[];
+  cardOffers?: OfferWithDetails[];
 }) {
   const router = useRouter();
   const [currentUserId, setCurrentUserId] = useState(initialUserId);
+  const [email, setEmail] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [photoTab, setPhotoTab] = useState<"oficial" | "real">(
     card.official_image_url ? "oficial" : "real"
   );
@@ -274,16 +280,40 @@ export default function CardDetailClient({
 
   useEffect(() => {
     const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "INITIAL_SESSION") return;
       setCurrentUserId(session?.user?.id ?? null);
+      setEmail(session?.user?.email ?? null);
       // Give AuthModal time to show its "logged in" success message first.
       if (session?.user) setTimeout(() => setAuthModalOpen(false), 1600);
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // The auth user object doesn't carry the profile photo — that lives on
+  // public.users, kept in sync with what's set in Profile Settings.
+  useEffect(() => {
+    if (!currentUserId) {
+      setAvatarUrl(null);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("users")
+      .select("avatar_url")
+      .eq("id", currentUserId)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled) setAvatarUrl(data?.avatar_url ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId]);
 
   // Seller management state
   const [delistConfirm, setDelistConfirm] = useState(false);
@@ -504,24 +534,6 @@ export default function CardDetailClient({
   const activeImageSrc =
     photoTab === "oficial" ? card.official_image_url : card.image_url;
 
-  const gradedRows = livePrice
-    ? [
-        { label: "PSA 10", price: livePrice.psa10, samples: livePrice.psa10s },
-        { label: "PSA 9", price: livePrice.psa9, samples: livePrice.psa9s },
-        { label: "PSA 8", price: livePrice.psa8, samples: livePrice.psa8s },
-        { label: "PSA 7", price: livePrice.psa7, samples: livePrice.psa7s },
-        { label: "CGC 10", price: livePrice.cgc10, samples: livePrice.cgc10s },
-        { label: "CGC 9", price: livePrice.cgc9, samples: livePrice.cgc9s },
-        { label: "BGS 10", price: livePrice.bgs10, samples: livePrice.bgs10s },
-      ].filter((r) => r.price != null)
-    : [];
-
-  const hasPriceData =
-    livePrice &&
-    (livePrice.tcgPlayerPrice != null ||
-      livePrice.cardmarketLowest != null ||
-      gradedRows.length > 0);
-
   return (
     <div className="bg-[#070707] text-white min-h-screen selection:bg-brand/20">
 
@@ -534,11 +546,11 @@ export default function CardDetailClient({
       >
         <div className="max-w-screen-xl mx-auto px-6 h-full flex items-center justify-between">
           <Link
-            href={isSeller ? "/dashboard" : "/"}
+            href={isSeller ? "/dashboard" : "/collection/pokemon"}
             className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-white transition-colors duration-200"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isSeller ? "Mis cartas" : "Mercado"}
+            {isSeller ? "Mi colección" : "Mercado"}
           </Link>
           <div className="flex items-center gap-3">
             {currentUserId && !isSeller && (
@@ -554,10 +566,20 @@ export default function CardDetailClient({
                 />
               </button>
             )}
-            <Link href="/" className="flex items-center gap-2">
-              <Image src="/solo-logo.png" alt="TCGRD" width={26} height={26} className="h-[26px] w-[26px]" />
-              <span className="text-brand font-extrabold text-base tracking-tighter">TCGRD</span>
-            </Link>
+            <AuthMenu
+              isDark
+              loggedIn={!!currentUserId}
+              email={email}
+              avatarUrl={avatarUrl}
+              onSelectLogin={() => {
+                setAuthMode("login");
+                setAuthModalOpen(true);
+              }}
+              onSelectRegister={() => {
+                setAuthMode("register");
+                setAuthModalOpen(true);
+              }}
+            />
           </div>
         </div>
       </motion.header>
@@ -674,7 +696,7 @@ export default function CardDetailClient({
             variants={fadeUp}
             initial="hidden"
             animate="visible"
-            className="text-[10px] font-semibold tracking-[0.2em] uppercase text-gray-600 mb-2"
+            className="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2"
           >
             Pokémon TCG
             {card.set_name ? ` · ${card.set_name}` : ""}
@@ -743,7 +765,7 @@ export default function CardDetailClient({
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
             className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-5 mb-3"
           >
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-gray-600 mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
               Precio de venta
             </p>
             <div className="flex items-baseline gap-3 flex-wrap">
@@ -832,7 +854,7 @@ export default function CardDetailClient({
                           min="0.01"
                           step="0.01"
                           autoFocus
-                          className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3 pl-8 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
+                          className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-lg py-3 pl-8 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
                         />
                       </div>
                       {publishPrice && parseFloat(publishPrice) > 0 && (
@@ -845,7 +867,7 @@ export default function CardDetailClient({
                         <button
                           type="button"
                           onClick={() => { setPublishExpanded(false); setPublishError(""); }}
-                          className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3 rounded-xl transition-colors"
+                          className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3 rounded-lg transition-colors"
                         >
                           Cancelar
                         </button>
@@ -853,7 +875,7 @@ export default function CardDetailClient({
                           type="button"
                           disabled={publishLoading || !publishPrice || parseFloat(publishPrice) <= 0}
                           onClick={handlePublishListing}
-                          className="flex-1 bg-brand text-black text-sm font-bold py-3 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                          className="flex-1 bg-brand text-black text-sm font-bold py-3 rounded-lg hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           {publishLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Publicar al mercado"}
                         </button>
@@ -863,7 +885,7 @@ export default function CardDetailClient({
                     <button
                       type="button"
                       onClick={() => setPublishExpanded(true)}
-                      className="w-full bg-brand text-black text-sm font-bold py-4 rounded-2xl hover:bg-[#00c64b] transition-colors"
+                      className="w-full bg-brand text-black text-sm font-bold py-4 rounded-lg hover:bg-[#00c64b] transition-colors"
                     >
                       Publicar al mercado
                     </button>
@@ -876,7 +898,7 @@ export default function CardDetailClient({
                     type="button"
                     disabled={markingSold}
                     onClick={handleMarkSold}
-                    className="w-full flex items-center justify-center gap-2 border border-white/[0.09] text-gray-300 hover:text-white text-sm font-medium py-3.5 rounded-2xl transition-colors disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 border border-white/[0.09] text-gray-300 hover:text-white text-sm font-medium py-3.5 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {markingSold ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
                     Confirmar entrega
@@ -896,7 +918,7 @@ export default function CardDetailClient({
                         <button
                           type="button"
                           onClick={() => { setDelistConfirm(false); setDelistError(""); }}
-                          className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-2xl transition-colors"
+                          className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-lg transition-colors"
                         >
                           Cancelar
                         </button>
@@ -904,7 +926,7 @@ export default function CardDetailClient({
                           type="button"
                           disabled={delisting}
                           onClick={handleUnlist}
-                          className="flex-1 border border-gray-700 text-gray-300 hover:text-white text-sm font-bold py-3.5 rounded-2xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                          className="flex-1 border border-gray-700 text-gray-300 hover:text-white text-sm font-bold py-3.5 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           {delisting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sí, retirar"}
                         </button>
@@ -914,7 +936,7 @@ export default function CardDetailClient({
                     <button
                       type="button"
                       onClick={() => setDelistConfirm(true)}
-                      className="w-full flex items-center justify-center gap-2 border border-white/[0.06] text-gray-600 hover:text-gray-300 hover:border-gray-700 text-sm font-medium py-3.5 rounded-2xl transition-colors"
+                      className="w-full flex items-center justify-center gap-2 border border-white/[0.06] text-gray-600 hover:text-gray-300 hover:border-gray-700 text-sm font-medium py-3.5 rounded-lg transition-colors"
                     >
                       Retirar del mercado
                     </button>
@@ -928,7 +950,7 @@ export default function CardDetailClient({
               <button
                 type="button"
                 onClick={() => setAuthModalOpen(true)}
-                className="w-full bg-brand text-black text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#00c64b] transition-colors"
+                className="w-full bg-brand text-black text-sm font-bold py-4 rounded-lg flex items-center justify-center gap-2 hover:bg-[#00c64b] transition-colors"
               >
                 Inicia sesión para comprar
               </button>
@@ -951,7 +973,7 @@ export default function CardDetailClient({
                         priceUsd: dealDone.priceUsd,
                       })
                     }
-                    className="w-full border border-[#25D366]/30 bg-[#25D366]/5 text-[#25D366] text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#25D366]/10 transition-colors"
+                    className="w-full border border-[#25D366]/30 bg-[#25D366]/5 text-[#25D366] text-sm font-bold py-4 rounded-lg flex items-center justify-center gap-2 hover:bg-[#25D366]/10 transition-colors"
                   >
                     <MessageCircle className="w-4 h-4" />
                     Abrir WhatsApp con el vendedor
@@ -980,7 +1002,7 @@ export default function CardDetailClient({
                       <button
                         type="button"
                         onClick={() => { setBuyConfirm(false); setCtaError(""); }}
-                        className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-2xl transition-colors"
+                        className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-lg transition-colors"
                       >
                         Cancelar
                       </button>
@@ -988,7 +1010,7 @@ export default function CardDetailClient({
                         type="button"
                         onClick={handleBuyNow}
                         disabled={submitting}
-                        className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-2xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-lg hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sí, comprar"}
                       </button>
@@ -1000,9 +1022,9 @@ export default function CardDetailClient({
                       type="button"
                       onClick={() => setBuyConfirm(true)}
                       whileHover={{ scale: 1.02, boxShadow: "0 0 70px -12px rgba(0,229,89,0.55)" }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={{ type: "spring", stiffness: 280, damping: 22 }}
-                      className="relative w-full overflow-hidden bg-brand text-black text-sm font-bold py-4 rounded-2xl flex items-center justify-center gap-2.5 shadow-[0_0_40px_-18px_rgba(0,229,89,0.4)]"
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      className="relative w-full overflow-hidden bg-brand text-black text-sm font-bold py-4 rounded-lg flex items-center justify-center gap-2.5 shadow-[0_0_40px_-18px_rgba(0,229,89,0.4)]"
                     >
                       <motion.span
                         aria-hidden
@@ -1016,10 +1038,10 @@ export default function CardDetailClient({
                     <motion.button
                       type="button"
                       onClick={() => setShowOfferModal(true)}
-                      whileHover={{ scale: 1.01, backgroundColor: "rgba(255,255,255,0.04)" }}
-                      whileTap={{ scale: 0.99 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 26 }}
-                      className="w-full border border-white/[0.09] text-gray-400 hover:text-white text-sm font-medium py-4 rounded-2xl transition-colors"
+                      whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.04)" }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      className="w-full border border-white/[0.09] text-gray-400 hover:text-white text-sm font-medium py-4 rounded-lg transition-colors"
                     >
                       Hacer oferta →
                     </motion.button>
@@ -1036,16 +1058,63 @@ export default function CardDetailClient({
             )}
           </motion.div>
 
-          {/* Chat with seller */}
+          {/* Start a conversation — messaging itself lives in Mi colección → Mensajes */}
           {currentUserId && !isSeller && (
             <motion.div custom={7.5} variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
-              <ChatPanel
-                cardId={card.id}
-                otherUserId={sellerId}
-                otherUserName={sellerName}
-                currentUserId={currentUserId}
-                initialMessages={initialMessages}
-              />
+              <Link
+                href="/dashboard?tab=mensajes"
+                className="w-full flex items-center justify-center gap-2 border border-white/[0.09] text-gray-400 hover:text-white text-sm font-medium py-4 rounded-lg transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Empezar conversación con vendedor
+              </Link>
+            </motion.div>
+          )}
+
+          {/* Ofertas recibidas — seller-only view of everyone's offers on this card */}
+          {isSeller && (
+            <motion.div custom={7.5} variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">
+                Ofertas recibidas
+              </p>
+              {cardOffers.length === 0 ? (
+                <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 text-center">
+                  <p className="text-sm text-gray-600">Aún no hay ofertas para esta carta.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {cardOffers.map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-3.5 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {offer.buyer?.display_name ?? "Comprador"}
+                        </p>
+                        <p className="text-[11px] text-gray-600">
+                          {new Date(offer.created_at).toLocaleDateString("es-DO", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-mono text-sm font-bold text-white">
+                          {formatPrice(offer.offer_price)}
+                        </p>
+                        <span
+                          className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${OFFER_STATUS_BADGE[offer.status]}`}
+                        >
+                          {offer.is_buy_now && offer.status === "accepted"
+                            ? "Compra directa"
+                            : OFFER_STATUS_LABEL[offer.status]}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -1099,7 +1168,7 @@ export default function CardDetailClient({
                           step="1"
                           autoFocus
                           required
-                          className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3.5 pl-12 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
+                          className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-lg py-3.5 pl-12 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
                         />
                       </div>
                     </div>
@@ -1114,7 +1183,7 @@ export default function CardDetailClient({
                         placeholder="¿Algo que el vendedor deba saber?"
                         rows={3}
                         maxLength={280}
-                        className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3 px-4 text-white text-sm outline-none focus:ring-1 focus:ring-brand/20 transition-all resize-none placeholder:text-gray-600"
+                        className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-lg py-3 px-4 text-white text-sm outline-none focus:ring-1 focus:ring-brand/20 transition-all resize-none placeholder:text-gray-600"
                       />
                     </div>
 
@@ -1124,14 +1193,14 @@ export default function CardDetailClient({
                       <button
                         type="button"
                         onClick={() => { setShowOfferModal(false); setCtaError(""); }}
-                        className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-xl transition-colors"
+                        className="flex-1 border border-white/[0.09] text-gray-500 hover:text-white text-sm font-medium py-3.5 rounded-lg transition-colors"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
                         disabled={submitting || !offerPrice}
-                        className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="flex-1 bg-brand text-black text-sm font-bold py-3.5 rounded-lg hover:bg-[#00c64b] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar oferta"}
                       </button>
@@ -1155,7 +1224,7 @@ export default function CardDetailClient({
                 {sellerName.substring(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[9px] font-semibold tracking-[0.18em] uppercase text-gray-600">
+                <p className="text-[10px] font-bold tracking-widest uppercase text-gray-500">
                   Vendedor
                 </p>
                 <p className="text-sm font-semibold text-white truncate">{sellerName}</p>
@@ -1253,67 +1322,12 @@ export default function CardDetailClient({
               </div>
             </AccordionItem>
 
-            {hasPriceData && (
-              <AccordionItem
-                title="Precios de referencia"
-                isOpen={openSection === "precios"}
-                onToggle={() => toggle("precios")}
-                index={10}
-              >
-                <div className="divide-y divide-white/[0.04] text-xs">
-                  {livePrice!.tcgPlayerPrice != null && (
-                    <div className="flex items-center justify-between px-5 py-3">
-                      <span className="text-gray-600 flex items-center gap-1.5">
-                        <Tag className="w-3 h-3 text-brand/50" />
-                        TCGPlayer market
-                      </span>
-                      <span className="font-mono font-semibold text-white">
-                        ${livePrice!.tcgPlayerPrice.toFixed(2)} USD
-                      </span>
-                    </div>
-                  )}
-                  {livePrice!.cardmarketLowest != null && (
-                    <div className="flex items-center justify-between px-5 py-3">
-                      <span className="text-gray-600">Cardmarket lowest NM</span>
-                      <span className="font-mono font-semibold text-white">
-                        €{livePrice!.cardmarketLowest.toFixed(2)} EUR
-                      </span>
-                    </div>
-                  )}
-                  {livePrice!.cardmarket7d != null && (
-                    <div className="flex items-center justify-between px-5 py-3">
-                      <span className="text-gray-600">Cardmarket 7d avg</span>
-                      <span className="font-mono font-semibold text-white">
-                        €{livePrice!.cardmarket7d.toFixed(2)} EUR
-                      </span>
-                    </div>
-                  )}
-                  {gradedRows.map((r) => (
-                    <div key={r.label} className="flex items-center justify-between px-5 py-3">
-                      <span className="flex items-center gap-2">
-                        <span className="font-bold text-yellow-400/80">{r.label}</span>
-                        {r.samples != null && (
-                          <span className="text-gray-700">{r.samples} ventas eBay</span>
-                        )}
-                      </span>
-                      <span className="font-mono font-semibold text-white">
-                        ${r.price!.toFixed(2)} USD
-                      </span>
-                    </div>
-                  ))}
-                  <p className="px-5 py-3 text-gray-700">
-                    Datos referenciales de mercados internacionales.
-                  </p>
-                </div>
-              </AccordionItem>
-            )}
-
             {card.notes && (
               <AccordionItem
                 title="Notas del vendedor"
                 isOpen={openSection === "notas"}
                 onToggle={() => toggle("notas")}
-                index={hasPriceData ? 11 : 10}
+                index={10}
               >
                 <p className="px-5 py-4 text-sm text-gray-400 leading-relaxed">
                   {card.notes}
@@ -1327,7 +1341,7 @@ export default function CardDetailClient({
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        mode="login"
+        mode={authMode}
         isDark
       />
     </div>

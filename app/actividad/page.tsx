@@ -4,6 +4,8 @@ import DashboardShell from "@/components/dashboard/DashboardShell";
 import ActividadPage from "@/components/dashboard/ActividadPage";
 import type { OfferWithDetails } from "@/components/dashboard/MyCardsDashboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function ActividadRoute() {
   const supabase = await createClient();
   const {
@@ -13,7 +15,7 @@ export default async function ActividadRoute() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name, avatar_url")
+    .select("display_name, avatar_url, theme_color")
     .eq("id", user.id)
     .single();
 
@@ -47,8 +49,12 @@ export default async function ActividadRoute() {
       active="actividad"
       avatarUrl={profile?.avatar_url ?? null}
       initials={initials}
+      email={user.email ?? null}
+      accentColor={profile?.theme_color ?? null}
     >
       <ActividadPage
+        avatarUrl={profile?.avatar_url ?? null}
+        initials={initials}
         userId={user.id}
         asSellerOffers={(asSellerOffers ?? []) as unknown as OfferWithDetails[]}
         asBuyerOffers={(asBuyerOffers ?? []) as unknown as OfferWithDetails[]}
