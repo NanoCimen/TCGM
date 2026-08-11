@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   MarketplaceCard,
   MarketplaceStats,
+  TrendingCard,
 } from "@/lib/marketplace/types";
 import type { CardStatus } from "@/lib/supabase/types";
 
@@ -11,6 +12,7 @@ type CardRow = {
   set_name: string | null;
   card_number: string | null;
   image_url: string | null;
+  official_image_url: string | null;
   price_usd: number | null;
   tcg_market_price: number | null;
   status: CardStatus;
@@ -31,7 +33,9 @@ function mapCard(row: CardRow): MarketplaceCard {
     card_name: row.card_name,
     set_name: row.set_name,
     card_number: row.card_number,
-    image_url: row.image_url,
+    // Prefer the official card artwork over the seller's own photo, same
+    // as the card detail/dashboard/collection views.
+    image_url: row.official_image_url ?? row.image_url,
     price_usd: row.price_usd,
     tcg_market_price: row.tcg_market_price,
     status: row.status,
@@ -57,6 +61,7 @@ export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
       set_name,
       card_number,
       image_url,
+      official_image_url,
       price_usd,
       tcg_market_price,
       status,
@@ -115,4 +120,85 @@ export async function getMarketplaceStats(
   };
 }
 
-export type { MarketplaceCard, MarketplaceStats };
+// "Trending" ranks live listings by community activity for that card name:
+// wishlist adds (strongest signal of demand), completed sales (proven
+// transactions — stands in for both "buys" and "sells" since a sale is
+// both), and how often the card gets listed at all. There's no dedicated
+// interaction-event log, so this composites the signals we already have.
+const INTERACTION_WEIGHTS = { wish: 3, sold: 2, listing: 1 };
+
+export async function getTrendingCards(limit = 6): Promise<TrendingCard[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("cards")
+    .select(
+      `
+      id,
+      card_name,
+      set_name,
+      card_number,
+      image_url,
+      official_image_url,
+      price_usd,
+      tcg_market_price,
+      status,
+      created_at,
+      variant,
+      language,
+      is_graded,
+      grade,
+      grade_company,
+      users!seller_id ( display_name )
+    `
+    )
+    .eq("status", "available")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error || !data?.length) {
+    if (error) console.error("getTrendingCards:", error.message);
+    return [];
+  }
+
+  const [{ data: allCards }, { data: demand }] = await Promise.all([
+    supabase.from("cards").select("card_name, status").limit(5000),
+    supabase.rpc("get_wishlist_demand", { limit_count: 500 }),
+  ]);
+
+  const soldCount = new Map<string, number>();
+  const listingCount = new Map<string, number>();
+  for (const row of allCards ?? []) {
+    const key = row.card_name.toLowerCase();
+    listingCount.set(key, (listingCount.get(key) ?? 0) + 1);
+    if (row.status === "sold") {
+      soldCount.set(key, (soldCount.get(key) ?? 0) + 1);
+    }
+  }
+
+  const wishCount = new Map<string, number>();
+  for (const d of (demand ?? []) as { card_name: string; wish_count: number }[]) {
+    const key = d.card_name.toLowerCase();
+    wishCount.set(key, (wishCount.get(key) ?? 0) + Number(d.wish_count));
+  }
+
+  const scored: TrendingCard[] = (data as CardRow[]).map(mapCard).map((card) => {
+    const key = card.card_name.toLowerCase();
+    const interactionScore =
+      (wishCount.get(key) ?? 0) * INTERACTION_WEIGHTS.wish +
+      (soldCount.get(key) ?? 0) * INTERACTION_WEIGHTS.sold +
+      (listingCount.get(key) ?? 0) * INTERACTION_WEIGHTS.listing;
+    return { ...card, interactionScore };
+  });
+
+  scored.sort((a, b) => {
+    if (b.interactionScore !== a.interactionScore) {
+      return b.interactionScore - a.interactionScore;
+    }
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  return scored.slice(0, limit);
+}
+
+export type { MarketplaceCard, MarketplaceStats, TrendingCard };

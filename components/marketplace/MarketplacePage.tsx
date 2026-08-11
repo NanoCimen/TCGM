@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Command, Sun, Moon, Clock, X, Heart, Loader2 } from "lucide-react";
+import { Search, Command, Sun, Moon, Clock, X, Flame } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -13,9 +13,8 @@ import NotificationsBell from "@/components/notifications/NotificationsBell";
 import { createClient } from "@/lib/supabase/client";
 import CardThumbnail from "./CardThumbnail";
 import type {
-  MarketplaceCard,
   MarketplaceStats,
-  WishlistDemand,
+  TrendingCard,
 } from "@/lib/marketplace/types";
 import {
   formatPrice,
@@ -33,6 +32,27 @@ const COLLECTION_IMAGES = {
   onepiece: "/images/one-piece-tcg.png",
   yugioh: "/images/yu-gi-oh-tcg.png",
 } as const;
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 28 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+};
+
+function AmbientGlow() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute -top-32 left-[8%] h-[420px] w-[420px] rounded-full bg-brand/10 dark:bg-brand/20 blur-[130px]" />
+      <div className="absolute top-[28%] -right-40 h-[560px] w-[560px] rounded-full bg-brand/[0.08] dark:bg-brand/[0.14] blur-[150px]" />
+      <div className="absolute bottom-[-10%] left-[20%] h-[480px] w-[480px] rounded-full bg-brand/[0.06] dark:bg-brand/[0.12] blur-[140px]" />
+      <div className="absolute inset-0 bg-white/0 dark:bg-black/10" />
+    </div>
+  );
+}
 
 function Navbar({
   isDark,
@@ -52,7 +72,7 @@ function Navbar({
   onAuthSelect: (mode: AuthMode) => void;
 }) {
   return (
-    <nav className="sticky top-0 z-50 bg-white/40 dark:bg-[#0a0a0a]/40 backdrop-blur-2xl backdrop-saturate-[1.8] border-b border-gray-200/30 dark:border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.04)] h-20 transition-colors">
+    <nav className="sticky top-0 z-50 bg-white/30 dark:bg-[#0a0a0a]/30 backdrop-blur-2xl backdrop-saturate-[1.8] border-b border-white/20 dark:border-white/[0.06] shadow-[0_1px_0_rgba(0,229,89,0.08)] h-20 transition-colors">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-10 h-full flex items-center justify-between">
         <div className="flex items-center gap-12">
           <Link href="/" className="flex items-center group">
@@ -68,19 +88,19 @@ function Navbar({
           <div className="hidden md:flex items-center space-x-8">
             <Link
               href="/"
-              className="text-gray-900 dark:text-white font-bold text-sm tracking-tight border-b-2 border-brand py-[30px]"
+              className="text-gray-900 dark:text-white font-semibold text-sm tracking-tight border-b-2 border-brand py-[30px]"
             >
               Mercado
             </Link>
             <Link
               href="/dashboard"
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-semibold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
             >
               Mis cartas
             </Link>
             <Link
               href="/collection/pokemon"
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-semibold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
             >
               Actividad
             </Link>
@@ -88,7 +108,7 @@ function Navbar({
               href="https://www.instagram.com/tcg.rd/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white font-semibold text-sm tracking-tight py-[30px] border-b-2 border-transparent transition-colors"
             >
               Nosotros
             </a>
@@ -99,7 +119,7 @@ function Navbar({
           <button
             type="button"
             onClick={toggleDark}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-500 dark:text-gray-400"
           >
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
@@ -111,9 +131,9 @@ function Navbar({
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Buscar cartas y vendedores"
-              className="w-full bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-lg py-2 pl-10 pr-12 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-brand focus:bg-white dark:focus:bg-[#111] transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 dark:text-white"
+              className="w-full bg-white/40 dark:bg-white/[0.04] backdrop-blur-md border border-white/30 dark:border-white/10 rounded-lg py-2 pl-10 pr-12 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-brand/60 focus:bg-white/70 dark:focus:bg-white/[0.06] transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 dark:text-white"
             />
-            <div className="absolute right-2 flex items-center bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 shadow-sm">
+            <div className="absolute right-2 flex items-center bg-white/60 dark:bg-white/[0.06] backdrop-blur-sm rounded border border-white/40 dark:border-white/10 px-1.5 py-0.5">
               <Command className="w-3 h-3 text-gray-400 dark:text-gray-500" />
               <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono font-bold ml-0.5 mt-[1px]">
                 K
@@ -200,124 +220,137 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
   const activeCol = collections[activeIndex];
 
   return (
-    <section className="mb-24">
-      <div className="relative w-full h-[400px] sm:h-[450px] lg:h-[500px] rounded-[20px] overflow-hidden mb-6 bg-[#0a0a0a] shadow-xl border border-gray-200 dark:border-gray-800">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeCol.id}
-            initial={{ opacity: 0, scale: 1.02 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="absolute inset-0"
-          >
-            <div className="absolute inset-0 bg-[#0a0a0a]" />
-            <div
-              className="absolute inset-y-0 right-0 w-full md:w-2/3 bg-contain bg-right bg-no-repeat opacity-90"
-              style={{ backgroundImage: `url(${activeCol.img})` }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/20" />
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.2 }}
+      variants={fadeInUp}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-28"
+    >
+      <div className="relative">
+        <div className="absolute -inset-6 rounded-[36px] bg-brand/10 blur-3xl opacity-60 -z-10" />
+        <div className="relative w-full h-[420px] sm:h-[470px] lg:h-[520px] rounded-[28px] overflow-hidden bg-[#0a0a0a] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeCol.id}
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="absolute inset-0"
+            >
+              <div className="absolute inset-0 bg-[#0a0a0a]" />
+              <div
+                className="absolute inset-y-0 right-0 w-full md:w-2/3 bg-contain bg-right bg-no-repeat opacity-90"
+                style={{ backgroundImage: `url(${activeCol.img})` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/10" />
 
-            <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-end">
-              <div className="max-w-3xl relative z-10">
-                <h1 className="text-5xl md:text-6xl lg:text-[5rem] font-black text-white tracking-tighter mb-2 leading-none drop-shadow-lg">
-                  {activeCol.name}
-                </h1>
-                <p
-                  className={`text-xs md:text-sm font-bold tracking-[0.2em] uppercase mb-10 ${activeCol.accent} drop-shadow-md`}
-                >
-                  {activeCol.publisher}
-                </p>
+              <div className="absolute inset-0 p-4 sm:p-8 md:p-10 flex flex-col justify-end">
+                <div className="max-w-2xl relative z-10 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6 md:p-9 shadow-[0_8px_40px_rgba(0,0,0,0.3)]">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-2 leading-[0.95] drop-shadow-lg">
+                    {activeCol.name}
+                  </h1>
+                  <p
+                    className={`text-xs md:text-sm font-semibold tracking-[0.2em] uppercase mb-8 ${activeCol.accent} drop-shadow-md`}
+                  >
+                    {activeCol.publisher}
+                  </p>
 
-                <div className="flex flex-wrap border-t border-white/10 pt-6 items-center gap-8 md:gap-14 mb-8">
-                  <div>
-                    <p className="text-[10px] md:text-xs font-mono font-bold text-gray-400 uppercase tracking-widest mb-1">
-                      Volumen de mercado
-                    </p>
-                    <p className="text-xl md:text-[28px] font-mono font-bold text-white leading-none">
-                      {activeCol.floorPrice}
-                    </p>
+                  <div className="h-px w-full bg-gradient-to-r from-white/0 via-white/15 to-white/0 mb-6" />
+
+                  <div className="flex flex-wrap items-center gap-8 md:gap-12 mb-8">
+                    <div>
+                      <p className="text-[10px] md:text-xs font-mono font-semibold text-gray-400 uppercase tracking-widest mb-1">
+                        Volumen de mercado
+                      </p>
+                      <p className="text-xl md:text-[26px] font-mono font-bold text-white leading-none">
+                        {activeCol.floorPrice}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] md:text-xs font-mono font-semibold text-gray-400 uppercase tracking-widest mb-1">
+                        Listados
+                      </p>
+                      <p className="text-xl md:text-[26px] font-mono font-bold text-white leading-none">
+                        {activeCol.volume}
+                      </p>
+                    </div>
+                    <div className="hidden sm:block">
+                      <p className="text-[10px] md:text-xs font-mono font-semibold text-gray-400 uppercase tracking-widest mb-1">
+                        Status
+                      </p>
+                      <span className="inline-flex items-center justify-center text-[10px] md:text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm mt-0.5">
+                        {activeCol.status}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] md:text-xs font-mono font-bold text-gray-400 uppercase tracking-widest mb-1">
-                      Listados
-                    </p>
-                    <p className="text-xl md:text-[28px] font-mono font-bold text-white leading-none">
-                      {activeCol.volume}
-                    </p>
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="text-[10px] md:text-xs font-mono font-bold text-gray-400 uppercase tracking-widest mb-1">
-                      Status
-                    </p>
-                    <span className="inline-flex items-center justify-center text-[10px] md:text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-[4px] border border-white/20 bg-white/10 text-white shadow-sm backdrop-blur-sm mt-0.5">
-                      {activeCol.status}
-                    </span>
-                  </div>
+
+                  {activeCol.status === "En vivo" ? (
+                    <Link
+                      href={`/collection/${activeCol.id}`}
+                      className="inline-flex w-fit bg-brand/90 hover:bg-brand border border-brand/40 text-black text-sm font-bold tracking-tight px-5 py-3 rounded-xl transition-all items-center gap-2 group active:scale-[0.98] shadow-[0_4px_20px_rgba(0,229,89,0.25)] hover:shadow-[0_6px_28px_rgba(0,229,89,0.4)]"
+                    >
+                      VER COLECCIÓN
+                      <svg
+                        className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setComingSoonOpen(true)}
+                      className="inline-flex w-fit bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-5 py-3 rounded-xl transition-all items-center gap-2 group active:scale-[0.98]"
+                    >
+                      VER COLECCIÓN
+                      <svg
+                        className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
-
-                {activeCol.status === "En vivo" ? (
-                  <Link
-                    href={`/collection/${activeCol.id}`}
-                    className="inline-flex w-fit bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-5 py-3 rounded-lg transition-all items-center gap-2 group active:scale-[0.98]"
-                  >
-                    VER COLECCIÓN
-                    <svg
-                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M14 5l7 7m0 0l-7 7m7-7H3"
-                      />
-                    </svg>
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setComingSoonOpen(true)}
-                    className="inline-flex w-fit bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md text-white text-sm font-bold tracking-tight px-5 py-3 rounded-lg transition-all items-center gap-2 group active:scale-[0.98]"
-                  >
-                    VER COLECCIÓN
-                    <svg
-                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M14 5l7 7m0 0l-7 7m7-7H3"
-                      />
-                    </svg>
-                  </button>
-                )}
               </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={staggerContainer} className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         {collections.map((c, i) => {
           const isActive = activeIndex === i;
           return (
-            <button
+            <motion.button
               key={c.id}
+              variants={fadeInUp}
               type="button"
               onClick={() => setActiveIndex(i)}
-              className={`relative h-28 lg:h-36 rounded-xl border overflow-hidden cursor-pointer transition-all duration-300 text-left
+              className={`relative h-28 lg:h-36 rounded-2xl border overflow-hidden cursor-pointer transition-all duration-300 text-left backdrop-blur-sm
                 ${
                   isActive
-                    ? "border-brand ring-2 ring-brand ring-offset-2 ring-offset-white dark:ring-offset-[#0a0a0a] scale-[1.02] shadow-[0_0_20px_rgba(0,229,89,0.15)] z-10"
-                    : "border-gray-200 dark:border-gray-800 opacity-60 hover:opacity-100 hover:scale-[1.01] hover:border-gray-300 dark:hover:border-gray-600 z-0"
+                    ? "border-brand/60 ring-1 ring-brand/50 scale-[1.02] shadow-[0_0_28px_rgba(0,229,89,0.2)] z-10"
+                    : "border-white/10 opacity-60 hover:opacity-100 hover:scale-[1.01] hover:border-white/25 z-0"
                 }`}
             >
               <div className="absolute inset-0 bg-[#0a0a0a]">
@@ -328,26 +361,26 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none" />
 
-              <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-white flex items-center justify-center p-0.5 shadow-md">
+              <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center p-0.5 shadow-md">
                 <div
                   className={`w-full h-full rounded-full bg-gradient-to-br ${c.bg} border border-black/10`}
                 />
               </div>
 
               <div className="absolute bottom-3 left-4 right-4 flex justify-between items-end">
-                <h3 className="font-bold text-white text-base tracking-tight">
+                <h3 className="font-semibold text-white text-base tracking-tight">
                   {c.name}
                 </h3>
                 {c.status !== "En vivo" && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/80 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/80 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                     Pronto
                   </span>
                 )}
               </div>
-            </button>
+            </motion.button>
           );
         })}
-      </div>
+      </motion.div>
 
       <AnimatePresence>
         {comingSoonOpen && (
@@ -370,7 +403,7 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+              className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-2xl p-6 shadow-2xl"
             >
               <button
                 type="button"
@@ -407,7 +440,76 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
           </div>
         )}
       </AnimatePresence>
-    </section>
+    </motion.section>
+  );
+}
+
+// Placeholder figures until real aggregate counts are wired up.
+const MISSION_STATS = [
+  { label: "Cartas Listadas", value: "1,240" },
+  { label: "Volumen Total", value: "RD$482K" },
+  { label: "Vendedores Activos", value: "312" },
+  { label: "Usuarios Totales", value: "5,890" },
+];
+
+function MissionSection() {
+  return (
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.3 }}
+      variants={fadeInUp}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="relative mb-28"
+    >
+      <div className="hidden lg:block absolute -left-[350px] top-1/4 -translate-y-1/2 w-[300px] pointer-events-none z-0">
+        <Image
+          src="/images/cards.png"
+          alt=""
+          width={260}
+          height={260}
+          className="w-full h-auto object-contain opacity-90"
+        />  </div>
+        <div className="hidden lg:block absolute -right-[350px] top-1/4 -translate-y-1/2 w-[300px] pointer-events-none z-0">
+        <Image
+          src="/images/planet.png"
+            alt=""
+            width={260}
+            height={260}
+            className="w-full h-auto object-contain opacity-90 scale-x-[-1]"
+          />
+      </div>
+
+      <div className="text-center relative z-10">
+        <h2 className="mx-auto max-w-4xl text-4xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight leading-[1.05] text-gray-900 dark:text-white [text-shadow:0_0_30px_rgba(0,229,89,0.2)] dark:[text-shadow:0_0_60px_rgba(0,229,89,0.45)]">
+          La forma más sencilla de comprar y vender cartas
+        </h2>
+        <p className="mx-auto mt-6 max-w-xl text-sm sm:text-base text-gray-500 dark:text-gray-400">
+          Sube tus cartas, compra, vende y conecta con otros coleccionistas de
+          toda República Dominicana — rápido y seguro.
+        </p>
+      </div>
+
+      <motion.div
+        variants={staggerContainer}
+        className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-4 relative z-10"
+      >
+        {MISSION_STATS.map((stat) => (
+          <motion.div
+            key={stat.label}
+            variants={fadeInUp}
+            className="rounded-2xl border border-white/15 dark:border-white/10 bg-white/30 dark:bg-white/[0.03] backdrop-blur-xl px-6 py-8"
+          >
+            <p className="font-mono text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
+              {stat.value}
+            </p>
+            <p className="mt-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              {stat.label}
+            </p>
+          </motion.div>
+        ))}
+      </motion.div>
+    </motion.section>
   );
 }
 
@@ -432,57 +534,38 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function InteractionScore({ score }: { score: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-sm font-bold text-brand">
+      <Flame className="w-3.5 h-3.5 fill-brand" />
+      {score}
+    </span>
+  );
+}
+
 function TrendingSection({
   cards,
   onCardClick,
   user,
 }: {
-  cards: MarketplaceCard[];
+  cards: TrendingCard[];
   onCardClick: (id: string) => void;
   user: User | null;
 }) {
-  const [tab, setTab] = useState<"buscadas" | "recent">("recent");
-  const [demand, setDemand] = useState<WishlistDemand[]>([]);
-  const [demandLoading, setDemandLoading] = useState(false);
-  const [demandLoaded, setDemandLoaded] = useState(false);
-  const router = useRouter();
-
-  const sorted = useMemo(() => {
-    return [...cards].sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }, [cards]);
-
-  // "Buscadas" is demand aggregated across ALL users' wishlists (a "hot
-  // cards" leaderboard) — fetched once and cached for the session.
-  useEffect(() => {
-    if (tab !== "buscadas" || demandLoaded) return;
-    let cancelled = false;
-    setDemandLoading(true);
-    fetch("/api/wishlist/demand")
-      .then((res) => res.json())
-      .then(({ data }) => {
-        if (!cancelled) {
-          setDemand(data ?? []);
-          setDemandLoaded(true);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setDemandLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, demandLoaded]);
-
   if (!cards.length) {
     return (
-      <section className="mb-24">
-        <h2 className="text-2xl font-extrabold tracking-tighter text-gray-900 dark:text-white mb-8">
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={fadeInUp}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-28"
+      >
+        <h2 className="neon-heading text-2xl mb-8">
           Tendencia
         </h2>
-        <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-12 text-center">
+        <div className="rounded-3xl border border-white/15 dark:border-white/10 bg-white/30 dark:bg-white/[0.03] backdrop-blur-xl p-12 text-center">
           <p className="text-gray-500 dark:text-gray-400 mb-4">
             Aun no hay cartas publicadas en el mercado.
           </p>
@@ -503,198 +586,49 @@ function TrendingSection({
             </button>
           )}
         </div>
-      </section>
+      </motion.section>
     );
   }
 
   return (
-    <section className="mb-24">
-      <div className="flex items-center gap-6 mb-8">
-        <h2 className="text-2xl font-extrabold tracking-tighter text-gray-900 dark:text-white">
+    <motion.section
+      id="tendencia"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.1 }}
+      variants={fadeInUp}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="mb-28"
+    >
+      <div className="mb-10">
+        <h2 className="neon-heading text-4xl sm:text-5xl">
           Tendencia
         </h2>
-        <div className="flex items-center gap-5 text-sm font-bold tracking-tight">
-          <button
-            type="button"
-            onClick={() => setTab("buscadas")}
-            className={`pb-1.5 px-1 border-b-2 transition-colors ${
-              tab === "buscadas"
-                ? "text-gray-900 dark:text-white border-brand"
-                : "text-gray-400 dark:text-gray-500 border-transparent hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            Buscadas
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("recent")}
-            className={`pb-1.5 px-1 border-b-2 transition-colors ${
-              tab === "recent"
-                ? "text-gray-900 dark:text-white border-brand"
-                : "text-gray-400 dark:text-gray-500 border-transparent hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            Recientes
-          </button>
-        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 sm:whitespace-nowrap">
+          Las cartas con más actividad de la comunidad ahora mismo
+        </p>
       </div>
 
-      {tab === "buscadas" ? (
-        demandLoading ? (
-          <div className="py-16 text-center">
-            <Loader2 className="w-6 h-6 text-gray-400 dark:text-gray-600 animate-spin mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando…</p>
-          </div>
-        ) : demand.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-12 text-center">
-            <Heart className="w-8 h-8 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">
-              Aún no hay cartas deseadas por la comunidad.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="hidden md:block w-full">
-              <div className="grid grid-cols-[3rem_minmax(280px,1fr)_140px] gap-4 px-4 pb-4 border-b border-gray-200 dark:border-gray-800/60 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                <div className="text-center">#</div>
-                <div>Carta</div>
-                <div className="text-right pr-2">Deseos</div>
-              </div>
-
-              <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
-                {demand.map((item, index) => (
-                  <div
-                    key={item.pokemon_tcg_id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => router.push(`/wishlist/card/${item.pokemon_tcg_id}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        router.push(`/wishlist/card/${item.pokemon_tcg_id}`);
-                      }
-                    }}
-                    className="grid grid-cols-[3rem_minmax(280px,1fr)_140px] gap-4 px-4 py-3 items-center hover:bg-gray-50/80 dark:hover:bg-[#111]/80 hover:shadow-[0_1px_3px_rgb(0,0,0,0.02)] group transition-all cursor-pointer rounded-lg dark:hover:shadow-[0_1px_3px_rgb(0,0,0,0.2)]"
-                  >
-                    <div className="text-center font-mono text-xs text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-                      {index + 1}
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <CardThumbnail
-                        src={item.image_url}
-                        alt={item.card_name}
-                        className="w-10 h-14 rounded-[4px] border border-gray-200 dark:border-gray-800 shadow-sm flex-shrink-0"
-                      />
-                      <div>
-                        <p className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-brand transition-colors tracking-tight">
-                          {item.card_name}
-                        </p>
-                        <p className="text-[11px] font-mono text-gray-500 dark:text-gray-400 mt-0.5">
-                          {item.set_name ?? "—"}
-                          {item.card_number ? ` · ${item.card_number}` : ""}
-                        </p>
-                        {item.variant && item.variant !== "Regular" && (
-                          <span
-                            className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                              VARIANT_BADGE_STYLES[item.variant] ??
-                              "bg-gray-800 text-gray-400 border-gray-700"
-                            }`}
-                          >
-                            {item.variant}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5 pr-2">
-                      <Heart className="w-4 h-4 text-brand fill-brand flex-shrink-0" />
-                      <span className="font-mono text-sm font-bold text-gray-900 dark:text-white">
-                        {item.wish_count}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="md:hidden space-y-4">
-              {demand.map((item, index) => (
-                <div
-                  key={item.pokemon_tcg_id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => router.push(`/wishlist/card/${item.pokemon_tcg_id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(`/wishlist/card/${item.pokemon_tcg_id}`);
-                    }
-                  }}
-                  className="bg-white dark:bg-[#111] border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition-shadow active:scale-[0.99] cursor-pointer relative overflow-hidden"
-                >
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900" />
-
-                  <div className="relative flex-shrink-0">
-                    <CardThumbnail
-                      src={item.image_url}
-                      alt={item.card_name}
-                      className="w-16 h-24 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-                    />
-                    <span className="absolute -top-2 -left-2 w-6 h-6 bg-gray-900 dark:bg-gray-800 text-white rounded-md flex items-center justify-center text-xs font-mono font-bold shadow-md border border-gray-800 dark:border-gray-700">
-                      {index + 1}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col justify-between flex-1 py-1">
-                    <div>
-                      <h3 className="font-bold text-[15px] tracking-tight text-gray-900 dark:text-white leading-tight pr-4">
-                        {item.card_name}
-                      </h3>
-                      <p className="text-[11px] font-mono text-gray-500 dark:text-gray-400">
-                        {item.set_name ?? "—"}
-                        {item.card_number ? ` · ${item.card_number}` : ""}
-                      </p>
-                      {item.variant && item.variant !== "Regular" && (
-                        <span
-                          className={`inline-block mt-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                            VARIANT_BADGE_STYLES[item.variant] ??
-                            "bg-gray-800 text-gray-400 border-gray-700"
-                          }`}
-                        >
-                          {item.variant}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end mt-4">
-                      <span className="flex items-center gap-1 text-xs font-bold text-brand">
-                        <Heart className="w-3.5 h-3.5 fill-brand" />
-                        {item.wish_count} deseos
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )
-      ) : (
-        <>
-      <div className="hidden md:block w-full">
-        <div className="grid grid-cols-[3rem_minmax(280px,1fr)_120px_120px_120px_180px] gap-4 px-4 pb-4 border-b border-gray-200 dark:border-gray-800/60 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+      <motion.div
+        variants={staggerContainer}
+        className="hidden md:block w-full overflow-hidden rounded-[1.75rem] border border-black/10 dark:border-white/[0.06] bg-white/40 dark:bg-white/[0.015] backdrop-blur-2xl"
+      >
+        <div className="grid grid-cols-[3rem_minmax(280px,1fr)_120px_130px_120px_160px] gap-4 px-6 pt-6 pb-4 border-b border-black/5 dark:border-white/[0.05] text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 font-mono">
           <div className="text-center">#</div>
           <div>Carta</div>
           <div className="text-right">Precio</div>
-          <div className="text-right">Colección</div>
+          <div className="text-right">Interacción</div>
           <div className="text-center">Estado</div>
-          <div className="text-right pr-4">Vendedor</div>
+          <div className="text-right pr-2">Vendedor</div>
         </div>
 
-        <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
-          {sorted.map((item, index) => {
+        <div className="divide-y divide-black/[0.04] dark:divide-white/[0.03]">
+          {cards.map((item, index) => {
             const label = statusLabel(item.status);
             return (
-              <div
+              <motion.div
                 key={item.id}
+                variants={fadeInUp}
                 role="button"
                 tabIndex={0}
                 onClick={() => onCardClick(item.id)}
@@ -704,7 +638,7 @@ function TrendingSection({
                     onCardClick(item.id);
                   }
                 }}
-                className="grid grid-cols-[3rem_minmax(280px,1fr)_120px_120px_120px_180px] gap-4 px-4 py-3 items-center hover:bg-gray-50/80 dark:hover:bg-[#111]/80 hover:shadow-[0_1px_3px_rgb(0,0,0,0.02)] group transition-all cursor-pointer rounded-lg dark:hover:shadow-[0_1px_3px_rgb(0,0,0,0.2)]"
+                className="grid grid-cols-[3rem_minmax(280px,1fr)_120px_130px_120px_160px] gap-4 px-6 py-4 items-center hover:bg-black/[0.02] dark:hover:bg-white/[0.03] group transition-colors cursor-pointer"
               >
                 <div className="text-center font-mono text-xs text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                   {index + 1}
@@ -713,7 +647,7 @@ function TrendingSection({
                   <CardThumbnail
                     src={item.image_url}
                     alt={item.card_name}
-                    className="w-10 h-14 rounded-[4px] border border-gray-200 dark:border-gray-800 shadow-sm flex-shrink-0"
+                    className="w-10 h-14 rounded-[4px] border border-white/20 dark:border-white/10 shadow-sm flex-shrink-0"
                   />
                   <div>
                     <p className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-brand transition-colors tracking-tight">
@@ -752,10 +686,8 @@ function TrendingSection({
                     {formatPrice(item.price_usd)}
                   </span>
                 </div>
-                <div className="text-right flex items-center justify-end">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Pokémon
-                  </span>
+                <div className="flex items-center justify-end">
+                  <InteractionScore score={item.interactionScore} />
                 </div>
                 <div className="flex justify-center items-center">
                   <StatusBadge status={label} />
@@ -765,18 +697,19 @@ function TrendingSection({
                     {item.seller_name}
                   </span>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
-      </div>
+      </motion.div>
 
-      <div className="md:hidden space-y-4">
-        {sorted.map((item, index) => {
+      <motion.div variants={staggerContainer} className="md:hidden space-y-4">
+        {cards.map((item, index) => {
           const label = statusLabel(item.status);
           return (
-            <div
+            <motion.div
               key={item.id}
+              variants={fadeInUp}
               role="button"
               tabIndex={0}
               onClick={() => onCardClick(item.id)}
@@ -786,17 +719,15 @@ function TrendingSection({
                   onCardClick(item.id);
                 }
               }}
-              className="bg-white dark:bg-[#111] border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition-shadow active:scale-[0.99] cursor-pointer relative overflow-hidden"
+              className="bg-white/40 dark:bg-white/[0.03] border border-white/20 dark:border-white/10 backdrop-blur-xl rounded-2xl p-4 flex gap-4 hover:bg-white/60 dark:hover:bg-white/[0.06] hover:shadow-[0_0_24px_rgba(0,229,89,0.1)] transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
             >
-              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900" />
-
               <div className="relative flex-shrink-0">
                 <CardThumbnail
                   src={item.image_url}
                   alt={item.card_name}
-                  className="w-16 h-24 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+                  className="w-16 h-24 rounded-lg shadow-sm border border-white/20 dark:border-white/10"
                 />
-                <span className="absolute -top-2 -left-2 w-6 h-6 bg-gray-900 dark:bg-gray-800 text-white rounded-md flex items-center justify-center text-xs font-mono font-bold shadow-md border border-gray-800 dark:border-gray-700">
+                <span className="absolute -top-2 -left-2 w-6 h-6 bg-gray-900/90 dark:bg-white/10 backdrop-blur-sm text-white rounded-md flex items-center justify-center text-xs font-mono font-bold border border-white/10">
                   {index + 1}
                 </span>
               </div>
@@ -804,7 +735,7 @@ function TrendingSection({
               <div className="flex flex-col justify-between flex-1 py-1">
                 <div>
                   <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-bold text-[15px] tracking-tight text-gray-900 dark:text-white leading-tight pr-4">
+                    <h3 className="font-semibold text-[15px] tracking-tight text-gray-900 dark:text-white leading-tight pr-4">
                       {item.card_name}
                     </h3>
                     <p
@@ -841,18 +772,19 @@ function TrendingSection({
 
                 <div className="flex items-center justify-between mt-4">
                   <StatusBadge status={label} />
-                  <span className="text-[11px] font-mono text-gray-600 dark:text-gray-400">
-                    {item.seller_name}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <InteractionScore score={item.interactionScore} />
+                    <span className="text-[11px] font-mono text-gray-600 dark:text-gray-400">
+                      {item.seller_name}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
-        </>
-      )}
-    </section>
+      </motion.div>
+    </motion.section>
   );
 }
 
@@ -864,7 +796,9 @@ function Footer() {
   ];
 
   return (
-    <footer className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#0a0a0a] mt-auto py-6 transition-colors">
+    <footer className="relative mt-auto py-8 transition-colors">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/20 to-transparent" />
+      <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.015] backdrop-blur-xl -z-10" />
       <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -908,11 +842,11 @@ function Footer() {
 }
 
 export default function MarketplacePage({
-  cards,
   stats,
+  trendingCards,
 }: {
-  cards: MarketplaceCard[];
   stats: MarketplaceStats;
+  trendingCards: TrendingCard[];
 }) {
   const router = useRouter();
   const [isDark, setIsDark] = useState(true);
@@ -923,9 +857,6 @@ export default function MarketplacePage({
   const [authInitialError, setAuthInitialError] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [displayedCards, setDisplayedCards] = useState<MarketplaceCard[]>(cards);
-  const [hasMore, setHasMore] = useState(cards.length === 24);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("tcgrd-theme");
@@ -1027,37 +958,20 @@ export default function MarketplacePage({
     openAuth("login");
   }, [user, openAuth, router]);
 
-  async function loadMore() {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    try {
-      const last = displayedCards[displayedCards.length - 1];
-      const cursor = last?.created_at ?? "";
-      const res = await fetch(`/api/marketplace?cursor=${encodeURIComponent(cursor)}`);
-      if (!res.ok) return;
-      const json = (await res.json()) as { cards: MarketplaceCard[]; hasMore: boolean };
-      setDisplayedCards((prev) => [...prev, ...json.cards]);
-      setHasMore(json.hasMore);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
-
-  const filteredCards = useMemo(() => {
+  const filteredTrending = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return displayedCards;
-    return displayedCards.filter(
+    if (!q) return trendingCards;
+    return trendingCards.filter(
       (c) =>
         c.card_name.toLowerCase().includes(q) ||
         c.set_name?.toLowerCase().includes(q) ||
         c.seller_name.toLowerCase().includes(q)
     );
-  }, [displayedCards, search]);
-
-  const isFiltering = search.trim().length > 0;
+  }, [trendingCards, search]);
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-brand/20">
+      <AmbientGlow />
       <Navbar
         isDark={isDark}
         toggleDark={() => setIsDark(!isDark)}
@@ -1070,32 +984,11 @@ export default function MarketplacePage({
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 lg:px-10 mt-12">
         <CollectionsSection stats={stats} />
         <TrendingSection
-          cards={filteredCards}
+          cards={filteredTrending}
           onCardClick={handleCardClick}
           user={user}
         />
-        {!isFiltering && hasMore && (
-          <div className="flex justify-center pb-16 -mt-12">
-            <button
-              type="button"
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="flex items-center gap-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-400 dark:hover:border-gray-500 text-sm font-bold px-8 py-3 rounded-xl transition-colors disabled:opacity-50"
-            >
-              {loadingMore ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Cargando...
-                </>
-              ) : (
-                "Cargar más →"
-              )}
-            </button>
-          </div>
-        )}
+        <MissionSection />
       </main>
       <Footer />
       <AuthModal

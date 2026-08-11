@@ -38,3 +38,10 @@ export interface WishlistDemand {
   variant: string | null;
   wish_count: number;
 }
+
+// A marketplace listing ranked by combined community activity (wishlist
+// adds, sales, and listing frequency for that card name) — see
+// getTrendingCards in lib/api/marketplace.ts for the scoring.
+export interface TrendingCard extends MarketplaceCard {
+  interactionScore: number;
+}
