@@ -5,20 +5,52 @@ import WishlistCardDetail, {
   type MarketListing,
 } from "@/components/wishlist/WishlistCardDetail";
 
+type WishlistRow = {
+  id: string;
+  card_name: string;
+  card_number: string | null;
+  set_name: string | null;
+  set_id: string | null;
+  image_url: string | null;
+  variant: string | null;
+};
+
+// The upstream Pokemon TCG API intermittently 500s on otherwise-valid
+// lookups (see app/api/pokemon-search/route.ts) — retry before giving up.
 async function fetchTcgCard(id: string): Promise<TcgCard | null> {
-  try {
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`, {
-      headers: process.env.POKEMON_TCG_API_KEY
-        ? { "X-Api-Key": process.env.POKEMON_TCG_API_KEY }
-        : {},
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return null;
-    const { data } = await res.json();
-    return data as TcgCard;
-  } catch {
-    return null;
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`, {
+        headers: process.env.POKEMON_TCG_API_KEY
+          ? { "X-Api-Key": process.env.POKEMON_TCG_API_KEY }
+          : {},
+        next: { revalidate: 3600 },
+      });
+      if (res.ok) {
+        const { data } = await res.json();
+        return data as TcgCard;
+      }
+    } catch {
+      // fall through to retry
+    }
+    if (attempt < MAX_ATTEMPTS - 1) await new Promise((r) => setTimeout(r, 300));
   }
+  return null;
+}
+
+// Builds a card view from what we already have in the wishlist row —
+// used whenever the external API is unavailable, so a flaky third-party
+// lookup never turns into a hard error for the user.
+function cardFromWishlistRow(tcgId: string, row: WishlistRow): TcgCard {
+  return {
+    id: tcgId,
+    name: row.card_name,
+    number: row.card_number ?? "",
+    set: { id: row.set_id ?? "", name: row.set_name ?? "Set desconocido" },
+    images: { small: row.image_url ?? "", large: row.image_url ?? undefined },
+    rarity: row.variant && row.variant !== "Regular" ? row.variant : undefined,
+  };
 }
 
 export default async function WishlistCardPage({
@@ -31,11 +63,25 @@ export default async function WishlistCardPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch the Pokemon TCG card
-  const card = await fetchTcgCard(params.tcgId);
+  // Check if the current user has this card in their wishlist — also
+  // doubles as a fallback data source if the external TCG API is down.
+  let wishlistItem: WishlistRow | null = null;
+  if (user) {
+    const { data: wItem } = await supabase
+      .from("wishlist")
+      .select("id, card_name, card_number, set_name, set_id, image_url, variant")
+      .eq("user_id", user.id)
+      .eq("pokemon_tcg_id", params.tcgId)
+      .maybeSingle<WishlistRow>();
+    wishlistItem = wItem ?? null;
+  }
+
+  const apiCard = await fetchTcgCard(params.tcgId);
+  const card = apiCard ?? (wishlistItem ? cardFromWishlistRow(params.tcgId, wishlistItem) : null);
   if (!card) notFound();
 
-  // Find marketplace listings with this card name
+  // Find marketplace listings with this card name — sourced entirely from
+  // our own DB, so this never depends on the external API being up.
   const { data: listingRows } = await supabase
     .from("cards")
     .select(
@@ -60,26 +106,12 @@ export default async function WishlistCardPage({
     };
   });
 
-  // Check if the current user has this card in their wishlist
-  let isInWishlist = false;
-  let wishlistItemId: string | null = null;
-  if (user) {
-    const { data: wItem } = await supabase
-      .from("wishlist")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("pokemon_tcg_id", params.tcgId)
-      .maybeSingle<{ id: string }>();
-    isInWishlist = !!wItem;
-    wishlistItemId = wItem?.id ?? null;
-  }
-
   return (
     <WishlistCardDetail
       card={card}
       listings={listings}
-      isInWishlist={isInWishlist}
-      wishlistItemId={wishlistItemId}
+      isInWishlist={!!wishlistItem}
+      wishlistItemId={wishlistItem?.id ?? null}
     />
   );
 }

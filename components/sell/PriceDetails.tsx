@@ -3,16 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
   Loader2,
   Search,
   Tag,
 } from "lucide-react";
 import type { TCGPriceResult } from "@/lib/api/tcggo";
+import { USD_TO_DOP } from "@/lib/marketplace/utils";
 
 export type TcgPriceResult = TCGPriceResult;
+
+/** Convert a USD reference price to a DOP string for the price input. */
+function usdToDopInput(usd: number): string {
+  return String(Math.round(usd * USD_TO_DOP * 100) / 100);
+}
 
 const NOTES_MAX = 200;
 
@@ -123,7 +127,12 @@ export default function PriceDetails({
   const [searchDone, setSearchDone] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const [refTableOpen, setRefTableOpen] = useState(false);
+  const [calcUsd, setCalcUsd] = useState("");
+
+  const [floorPrice, setFloorPrice] = useState<{
+    loading: boolean;
+    usd: number | null;
+  }>({ loading: true, usd: null });
 
   const activeCompany = (gradeCompany ?? "PSA") as GradeCompany;
   const activeGrade = grade ?? "10";
@@ -160,7 +169,7 @@ export default function PriceDetails({
     setPriceData(partial);
     onTcgResult(partial);
     if (result.marketPrice != null && !price) {
-      onPriceChange(String(result.marketPrice));
+      onPriceChange(usdToDopInput(result.marketPrice));
     }
     setSearchOpen(false);
   }
@@ -171,11 +180,11 @@ export default function PriceDetails({
       onGradeCompanyChange("PSA");
       onGradeChange("10");
       const { price: gp } = getGradeData(priceData, "PSA", "10");
-      if (gp != null) onPriceChange(String(gp));
+      if (gp != null) onPriceChange(usdToDopInput(gp));
     } else {
       onGradeCompanyChange(null);
       onGradeChange(null);
-      if (priceData?.displayPrice != null) onPriceChange(String(priceData.displayPrice));
+      if (priceData?.displayPrice != null) onPriceChange(usdToDopInput(priceData.displayPrice));
     }
   }
 
@@ -183,13 +192,13 @@ export default function PriceDetails({
     onGradeCompanyChange(company);
     onGradeChange("10");
     const { price: gp } = getGradeData(priceData, company, "10");
-    if (gp != null) onPriceChange(String(gp));
+    if (gp != null) onPriceChange(usdToDopInput(gp));
   }
 
   function handleGradeChange(g: string) {
     onGradeChange(g);
     const { price: gp } = getGradeData(priceData, activeCompany, g);
-    if (gp != null) onPriceChange(String(gp));
+    if (gp != null) onPriceChange(usdToDopInput(gp));
   }
 
   useEffect(() => {
@@ -211,7 +220,7 @@ export default function PriceDetails({
         onTcgResult(result);
         if (result.displayPrice != null && !prefilled.current && !price) {
           prefilled.current = true;
-          onPriceChange(String(result.displayPrice));
+          onPriceChange(usdToDopInput(result.displayPrice));
         }
       } catch {
         if (!cancelled) onTcgResult(NULL_PRICE_RESULT);
@@ -227,19 +236,36 @@ export default function PriceDetails({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (isGraded) return;
+    let cancelled = false;
+
+    async function fetchFloorPrice() {
+      setFloorPrice({ loading: true, usd: null });
+      try {
+        const params = new URLSearchParams({ name: cardName });
+        if (cardNumber.trim()) params.set("number", cardNumber);
+        const res = await fetch(`/api/marketplace/floor-price?${params.toString()}`);
+        const data = res.ok ? ((await res.json()) as { floorUsd: number | null }) : null;
+        if (cancelled) return;
+        setFloorPrice({ loading: false, usd: data?.floorUsd ?? null });
+      } catch {
+        if (!cancelled) setFloorPrice({ loading: false, usd: null });
+      }
+    }
+
+    fetchFloorPrice();
+    return () => {
+      cancelled = true;
+    };
+  }, [cardName, cardNumber, isGraded]);
+
   const numericPrice = parseFloat(price);
   const hasValidPrice = !Number.isNaN(numericPrice) && numericPrice > 0;
 
-  let comparison: { text: string; classes: string } | null = null;
-  if (hasValidPrice && tcgPrice != null && !skipApi && !isGraded) {
-    if (numericPrice < tcgPrice) {
-      comparison = { text: "🟢 Buen precio para el comprador", classes: "text-green-400" };
-    } else if (numericPrice > tcgPrice) {
-      comparison = { text: "🟡 Por encima del mercado", classes: "text-amber-400" };
-    }
-  }
-
-  const tcgPlayerUrl = `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(cardName)}`;
+  const tcgPlayerUrl = `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(
+    [cardName, setName].filter(Boolean).join(" ")
+  )}`;
   const priceChartingUrl = `https://www.pricecharting.com/search-products?q=${encodeURIComponent(cardName)}`;
   const naverUrl = `https://search.naver.com/search.naver?query=${encodeURIComponent(cardName)}+포켓몬카드`;
 
@@ -606,11 +632,11 @@ export default function PriceDetails({
             htmlFor="sellPrice"
             className="block text-sm font-bold text-white mb-2"
           >
-            Tu precio de venta
+            Tu precio de venta (RD$)
           </label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-500">
-              $
+              RD$
             </span>
             <input
               id="sellPrice"
@@ -621,12 +647,26 @@ export default function PriceDetails({
               value={price}
               onChange={(e) => onPriceChange(e.target.value)}
               placeholder="0.00"
-              className="w-full bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 pl-8 pr-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all"
+              className="w-full bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all"
             />
           </div>
-          {comparison && (
-            <p className={`text-xs font-bold mt-2 ${comparison.classes}`}>
-              {comparison.text}
+          {!isGraded && (
+            <p className="text-xs font-bold mt-2 text-gray-400">
+              {floorPrice.loading ? (
+                "Buscando precio más bajo actual..."
+              ) : floorPrice.usd != null ? (
+                <>
+                  Precio más bajo actual:{" "}
+                  <span className="text-white">
+                    RD${(floorPrice.usd * USD_TO_DOP).toLocaleString("es-DO", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </>
+              ) : (
+                "No hay listadas"
+              )}
             </p>
           )}
         </div>
@@ -650,76 +690,41 @@ export default function PriceDetails({
         </div>
       </div>
 
-      {/* SECTION C — Collapsible reference table */}
+      {/* SECTION C — Reference price link + quick USD→RD$ calculator */}
       {priceData && (ungradedRows.length > 0 || gradedRowDefs.length > 0) && (
-        <div className="mt-5">
-          <button
-            type="button"
-            onClick={() => setRefTableOpen((v) => !v)}
-            className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-white transition-colors"
+        <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
+          <a
+            href={tcgPlayerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand hover:underline underline-offset-2"
           >
-            {refTableOpen ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-            Ver todos los precios de referencia
-          </button>
+            <ExternalLink className="w-3.5 h-3.5" />
+            Ver precio de referencia en TCGPlayer
+          </a>
 
-          {refTableOpen && (
-            <div className="mt-3 bg-[#111] border border-gray-800 rounded-xl overflow-hidden text-xs">
-              {ungradedRows.length > 0 && (
-                <>
-                  <div className="px-4 py-2 bg-gray-900/60 border-b border-gray-800">
-                    <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">
-                      Sin graduar
-                    </p>
-                  </div>
-                  {ungradedRows.map((row) => (
-                    <div
-                      key={row.label}
-                      className="flex items-center justify-between px-4 py-2 border-b border-gray-800/60 last:border-0"
-                    >
-                      <span className="text-gray-400">{row.label}</span>
-                      <span className="font-mono font-bold text-white">{row.value}</span>
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {gradedRowDefs.length > 0 && (
-                <>
-                  <div className="px-4 py-2 bg-gray-900/60 border-b border-gray-800 border-t border-t-gray-700">
-                    <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">
-                      Graduadas (mediana eBay)
-                    </p>
-                  </div>
-                  {gradedRowDefs.map((row) => (
-                    <div
-                      key={row.label}
-                      className="flex items-center justify-between px-4 py-2 border-b border-gray-800/60 last:border-0"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-yellow-400">{row.label}</span>
-                        {row.samples != null && (
-                          <span className="text-gray-600">{row.samples} ventas</span>
-                        )}
-                      </div>
-                      <span className="font-mono font-bold text-white">
-                        ${row.price!.toFixed(2)} USD
-                      </span>
-                    </div>
-                  ))}
-                </>
-              )}
-
-              <div className="px-4 py-3 bg-gray-900/40 border-t border-gray-800">
-                <p className="text-gray-500 leading-relaxed">
-                  💡 Los precios graduados son referenciales — están basados en ventas recientes de eBay y pueden variar.
-                </p>
-              </div>
-            </div>
-          )}
+          <div className="inline-flex items-center gap-1.5 text-xs bg-[#111] border border-gray-800 rounded-lg pl-2 pr-3 py-1.5">
+            <span className="text-gray-500 font-bold">$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              value={calcUsd}
+              onChange={(e) => setCalcUsd(e.target.value)}
+              placeholder="USD"
+              className="w-14 bg-transparent text-white placeholder:text-gray-600 outline-none"
+            />
+            <span className="text-gray-600">→</span>
+            <span className="font-mono font-bold text-white whitespace-nowrap">
+              {calcUsd && !Number.isNaN(parseFloat(calcUsd))
+                ? `RD$${(parseFloat(calcUsd) * USD_TO_DOP).toLocaleString("es-DO", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`
+                : "RD$0.00"}
+            </span>
+          </div>
         </div>
       )}
 

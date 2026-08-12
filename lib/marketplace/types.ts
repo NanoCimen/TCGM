@@ -44,4 +44,5 @@ export interface WishlistDemand {
 // getTrendingCards in lib/api/marketplace.ts for the scoring.
 export interface TrendingCard extends MarketplaceCard {
   interactionScore: number;
+  offersCount: number;
 }

@@ -182,7 +182,9 @@ export async function getTrendingCards(limit = 6): Promise<TrendingCard[]> {
     wishCount.set(key, (wishCount.get(key) ?? 0) + Number(d.wish_count));
   }
 
-  const scored: TrendingCard[] = (data as CardRow[]).map(mapCard).map((card) => {
+  const scored: (MarketplaceCard & { interactionScore: number })[] = (
+    data as CardRow[]
+  ).map(mapCard).map((card) => {
     const key = card.card_name.toLowerCase();
     const interactionScore =
       (wishCount.get(key) ?? 0) * INTERACTION_WEIGHTS.wish +
@@ -198,7 +200,29 @@ export async function getTrendingCards(limit = 6): Promise<TrendingCard[]> {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  return scored.slice(0, limit);
+  const top = scored.slice(0, limit);
+  const topIds = top.map((c) => c.id);
+
+  // RLS on offers only lets a user read their own offers, so a plain select
+  // would show 0 for everyone else's cards — use the public aggregate RPC
+  // instead (see get_offers_count, mirrors get_wishlist_demand).
+  const offersCount = new Map<string, number>();
+  if (topIds.length) {
+    const { data: offerRows } = await supabase.rpc("get_offers_count", {
+      card_ids: topIds,
+    });
+    for (const row of (offerRows ?? []) as {
+      card_id: string;
+      offers_count: number;
+    }[]) {
+      offersCount.set(row.card_id, Number(row.offers_count));
+    }
+  }
+
+  return top.map((card) => ({
+    ...card,
+    offersCount: offersCount.get(card.id) ?? 0,
+  }));
 }
 
 export type { MarketplaceCard, MarketplaceStats, TrendingCard };

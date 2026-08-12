@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { USD_TO_DOP } from "@/lib/marketplace/utils";
 import { dataUrlToBlob } from "./compressImage";
 import StepIndicator from "./StepIndicator";
 import CameraScanner from "./CameraScanner";
@@ -156,7 +157,7 @@ export default function SellFlow() {
         card_number: state.cardNumber.trim() || null,
         image_url: publicUrl.publicUrl,
         official_image_url: state.officialImageUrl,
-        price_usd: parseFloat(state.price),
+        price_usd: parseFloat(state.price) / USD_TO_DOP,
         tcg_market_price: state.tcgPrice,
         status: "draft",
         notes: state.notes.trim() || null,

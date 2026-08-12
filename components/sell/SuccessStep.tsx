@@ -62,7 +62,10 @@ export default function SuccessStep({
         <p className="font-bold text-white text-lg">{cardName}</p>
         <p className="text-sm text-gray-500">{setName || "—"}</p>
         <p className="font-mono font-bold text-brand text-xl mt-2">
-          ${parseFloat(price || "0").toFixed(2)}
+          RD${parseFloat(price || "0").toLocaleString("es-DO", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
         </p>
       </div>
 

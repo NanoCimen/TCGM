@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, X, Flame, Bell } from "lucide-react";
+import { Clock, X, Tag, Bell } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -415,11 +415,11 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function InteractionScore({ score }: { score: number }) {
+function OffersCount({ count }: { count: number }) {
   return (
     <span className="inline-flex items-center gap-1 font-mono text-sm font-bold text-brand">
-      <Flame className="w-3.5 h-3.5 fill-brand" />
-      {score}
+      <Tag className="w-3.5 h-3.5" />
+      {count}
     </span>
   );
 }
@@ -498,7 +498,7 @@ function TrendingSection({
           <div className="text-center">#</div>
           <div>Carta</div>
           <div className="text-right">Precio</div>
-          <div className="text-right">Interacción</div>
+          <div className="text-right">Ofertas</div>
           <div className="text-center">Estado</div>
           <div className="text-right pr-2">Vendedor</div>
         </div>
@@ -568,7 +568,7 @@ function TrendingSection({
                   </span>
                 </div>
                 <div className="flex items-center justify-end">
-                  <InteractionScore score={item.interactionScore} />
+                  <OffersCount count={item.offersCount} />
                 </div>
                 <div className="flex justify-center items-center">
                   <StatusBadge status={label} />
@@ -654,7 +654,7 @@ function TrendingSection({
                 <div className="flex items-center justify-between mt-4">
                   <StatusBadge status={label} />
                   <div className="flex items-center gap-3">
-                    <InteractionScore score={item.interactionScore} />
+                    <OffersCount count={item.offersCount} />
                     <span className="text-[11px] font-mono text-gray-600 dark:text-gray-400">
                       {item.seller_name}
                     </span>
@@ -713,35 +713,16 @@ function UploadSection() {
         </Link>
       </div>
 
-      <div className="rounded-2xl border border-white/15 dark:border-white/10 bg-white/30 dark:bg-white/[0.03] backdrop-blur-xl p-6 max-w-sm w-full mx-auto lg:mx-0">
-        <div className="flex gap-4">
-          <CardThumbnail
-            src={null}
-            alt=""
-            className="w-20 h-28 rounded-lg border border-white/20 dark:border-white/10 flex-shrink-0"
-          />
-          <div className="flex-1 space-y-3 min-w-0">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
-                Nombre de la carta
-              </p>
-              <div className="h-9 rounded-lg border border-white/20 dark:border-white/10 bg-white/40 dark:bg-white/[0.04] px-3 flex items-center text-sm text-gray-500 dark:text-gray-400 truncate">
-                Charizard VMAX
-              </div>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
-                Precio
-              </p>
-              <div className="h-9 rounded-lg border border-white/20 dark:border-white/10 bg-white/40 dark:bg-white/[0.04] px-3 flex items-center font-mono text-sm text-gray-900 dark:text-white">
-                RD$4,250.00
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="mt-5 w-full bg-brand text-black text-sm font-bold text-center py-2.5 rounded-lg">
-          Publicar
-        </div>
+      <div className="rounded-2xl border border-white/15 dark:border-white/10 w-full aspect-video overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-full object-cover scale-130"
+        >
+          <source src="/videos/0812.mp4" type="video/mp4" />
+        </video>
       </div>
     </motion.section>
   );

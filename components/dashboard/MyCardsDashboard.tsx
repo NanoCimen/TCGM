@@ -23,6 +23,12 @@ export type RawMessage = {
   sender: { display_name: string | null } | null;
 };
 
+export type ClosedConversation = {
+  card_id: string;
+  other_user_id: string;
+  closed_at: string;
+};
+
 export type DashboardCard = {
   id: string;
   card_name: string;
@@ -52,6 +58,7 @@ export type OfferWithDetails = {
     image_url: string | null;
     official_image_url: string | null;
     price_usd: number | null;
+    status: string;
   } | null;
   buyer: { id: string; display_name: string | null; phone: string | null } | null;
   seller: { id: string; display_name: string | null; phone: string | null } | null;
@@ -125,6 +132,7 @@ export function OfferCard({
   const card = offer.cards;
   const counterpart =
     role === "seller" ? offer.buyer : offer.seller;
+  const delivered = offer.status === "accepted" && card?.status === "sold";
 
   async function handle(status: "accepted" | "declined" | "cancelled") {
     setLoading(status);
@@ -158,9 +166,15 @@ export function OfferCard({
             )}
           </div>
           <span
-            className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${OFFER_STATUS_BADGE[offer.status]}`}
+            className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              delivered
+                ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                : OFFER_STATUS_BADGE[offer.status]
+            }`}
           >
-            {offer.is_buy_now && offer.status === "accepted"
+            {delivered
+              ? "Entregada"
+              : offer.is_buy_now && offer.status === "accepted"
               ? "Compra directa"
               : OFFER_STATUS_LABEL[offer.status]}
           </span>
@@ -241,7 +255,7 @@ export function OfferCard({
             </button>
           )}
 
-          {offer.status === "accepted" && role === "seller" && card && (
+          {offer.status === "accepted" && role === "seller" && card && !delivered && (
             <>
               <button
                 type="button"
@@ -281,7 +295,14 @@ export function OfferCard({
             </>
           )}
 
-          {offer.status === "accepted" && role === "buyer" && card && (
+          {delivered && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-400">
+              <CheckCheck className="w-3.5 h-3.5" />
+              Entrega confirmada
+            </span>
+          )}
+
+          {offer.status === "accepted" && role === "buyer" && card && !delivered && (
             <>
               <button
                 type="button"
@@ -323,8 +344,17 @@ type Thread = {
   unread: number;
 };
 
-function MensajesTab({ threads, userId }: { threads: Thread[]; userId: string }) {
+function MensajesTab({
+  threads,
+  userId,
+  onCloseThread,
+}: {
+  threads: Thread[];
+  userId: string;
+  onCloseThread: (cardId: string, otherUserId: string) => Promise<void>;
+}) {
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
+  const [closing, setClosing] = useState(false);
 
   if (threads.length === 0) {
     return (
@@ -341,13 +371,33 @@ function MensajesTab({ threads, userId }: { threads: Thread[]; userId: string })
     <div className="max-w-2xl">
       {activeThread ? (
         <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => setActiveThread(null)}
-            className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1"
-          >
-            ← Todos los mensajes
-          </button>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveThread(null)}
+              className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1"
+            >
+              ← Todos los mensajes
+            </button>
+            <button
+              type="button"
+              disabled={closing}
+              onClick={async () => {
+                setClosing(true);
+                await onCloseThread(activeThread.cardId, activeThread.otherUserId);
+                setClosing(false);
+                setActiveThread(null);
+              }}
+              className="text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1 disabled:opacity-50"
+            >
+              {closing ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <X className="w-3 h-3" />
+              )}
+              Cerrar conversación
+            </button>
+          </div>
           <p className="text-sm font-bold text-white">
             {activeThread.cardName}{" "}
             <span className="text-gray-500 font-normal">· {activeThread.otherUserName}</span>
@@ -410,6 +460,7 @@ export default function MyCardsDashboard({
   offerCountByCard = {},
   userId = "",
   allMessages = [],
+  closedConversations = [],
 }: {
   displayName: string;
   email: string;
@@ -421,6 +472,7 @@ export default function MyCardsDashboard({
   offerCountByCard?: Record<string, number>;
   userId?: string;
   allMessages?: RawMessage[];
+  closedConversations?: ClosedConversation[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -529,7 +581,17 @@ export default function MyCardsDashboard({
     thread.messages.push(m as ChatMessage);
     if (m.receiver_id === userId && !m.read) thread.unread++;
   }
-  const threads = Array.from(threadMap.values());
+  // A closed thread stays hidden until a newer message arrives (messages
+  // are queried newest-first, so messages[0] is the latest).
+  const closedMap = new Map(
+    closedConversations.map((c) => [`${c.card_id}::${c.other_user_id}`, c.closed_at])
+  );
+  const threads = Array.from(threadMap.values()).filter((t) => {
+    const closedAt = closedMap.get(`${t.cardId}::${t.otherUserId}`);
+    if (!closedAt) return true;
+    const latestMessageAt = t.messages[0]?.created_at;
+    return !!latestMessageAt && new Date(latestMessageAt) > new Date(closedAt);
+  });
   const totalUnreadMessages = threads.reduce((s, t) => s + t.unread, 0);
 
   const activityOffers = [
@@ -571,23 +633,46 @@ export default function MyCardsDashboard({
   }
 
   async function handleMarkSold(cardId: string) {
-    await fetch(`/api/cards/${cardId}`, {
+    const res = await fetch(`/api/cards/${cardId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "sold" }),
     });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      console.error("handleMarkSold:", json?.error ?? res.statusText);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function handleCloseConversation(cardId: string, otherUserId: string) {
+    const res = await fetch("/api/conversations/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ card_id: cardId, other_user_id: otherUserId }),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      console.error("handleCloseConversation:", json?.error ?? res.statusText);
+      return;
+    }
     router.refresh();
   }
 
   function openPublishModal(card: DashboardCard) {
-    setPublishPriceInput(card.price_usd != null ? String(card.price_usd) : "");
+    setPublishPriceInput(
+      card.price_usd != null
+        ? String(Math.round(card.price_usd * USD_TO_DOP * 100) / 100)
+        : ""
+    );
     setPublishModalError("");
     setPublishModal({ cardId: card.id, cardName: card.card_name, priceUsd: card.price_usd });
   }
 
   async function handlePublishConfirm() {
     if (!publishModal) return;
-    const priceUsd = parseFloat(publishPriceInput);
+    const priceUsd = parseFloat(publishPriceInput) / USD_TO_DOP;
     if (!priceUsd || priceUsd <= 0) { setPublishModalError("Ingresa un precio válido"); return; }
     setPublishLoading(true);
     setPublishModalError("");
@@ -1064,6 +1149,7 @@ export default function MyCardsDashboard({
           <MensajesTab
             threads={threads}
             userId={userId}
+            onCloseThread={handleCloseConversation}
           />
         )}
 
@@ -1119,10 +1205,10 @@ export default function MyCardsDashboard({
 
             <div>
               <label className="block text-xs font-bold text-gray-400 mb-2">
-                Tu precio de venta (USD)
+                Tu precio de venta (RD$)
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">RD$</span>
                 <input
                   type="number"
                   value={publishPriceInput}
@@ -1131,12 +1217,12 @@ export default function MyCardsDashboard({
                   min="0.01"
                   step="0.01"
                   autoFocus
-                  className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3.5 pl-8 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
+                  className="w-full bg-[#1a1a1a] border border-gray-700 focus:border-brand rounded-xl py-3.5 pl-11 pr-4 text-white text-sm font-mono outline-none focus:ring-1 focus:ring-brand/20 transition-all"
                 />
               </div>
               {publishPriceInput && parseFloat(publishPriceInput) > 0 && (
                 <p className="text-[11px] text-gray-500 font-mono mt-1.5">
-                  {"~"} {formatPrice(parseFloat(publishPriceInput))}
+                  {"~"} ${(parseFloat(publishPriceInput) / USD_TO_DOP).toFixed(2)} USD
                 </p>
               )}
               {publishModalError && <p className="text-red-400 text-xs mt-1.5">{publishModalError}</p>}

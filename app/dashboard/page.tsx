@@ -4,6 +4,7 @@ import MyCardsDashboard, {
   type DashboardCard,
   type OfferWithDetails,
   type RawMessage,
+  type ClosedConversation,
 } from "@/components/dashboard/MyCardsDashboard";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function DashboardPage() {
     is_buy_now,
     created_at,
     responded_at,
-    cards ( id, card_name, set_name, image_url, official_image_url, price_usd ),
+    cards ( id, card_name, set_name, image_url, official_image_url, price_usd, status ),
     buyer:users!buyer_id ( id, display_name, phone ),
     seller:users!seller_id ( id, display_name, phone )
   `;
@@ -37,6 +38,7 @@ export default async function DashboardPage() {
     { data: madeOffers },
     { data: pendingOfferCounts },
     { data: allMessages },
+    { data: closedConversations },
   ] = await Promise.all([
     supabase
       .from("users")
@@ -73,6 +75,10 @@ export default async function DashboardPage() {
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
       .limit(300),
+    supabase
+      .from("closed_conversations")
+      .select("card_id, other_user_id, closed_at")
+      .eq("user_id", user.id),
   ]);
 
   // Build a map of cardId → pending offer count
@@ -94,6 +100,7 @@ export default async function DashboardPage() {
       offerCountByCard={offerCountByCard}
       userId={user.id}
       allMessages={(allMessages ?? []) as unknown as RawMessage[]}
+      closedConversations={(closedConversations ?? []) as ClosedConversation[]}
     />
   );
 }

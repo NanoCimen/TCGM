@@ -21,7 +21,7 @@ export default async function ActividadRoute() {
 
   const offerSelect = `
     id, card_id, offer_price, message, status, is_buy_now, created_at, responded_at,
-    cards ( id, card_name, set_name, image_url, official_image_url, price_usd ),
+    cards ( id, card_name, set_name, image_url, official_image_url, price_usd, status ),
     buyer:users!buyer_id ( id, display_name, phone ),
     seller:users!seller_id ( id, display_name, phone )
   `;

@@ -954,6 +954,7 @@ export default function PokemonCollectionPage({
                 <div className="py-20 text-center">
                   <Loader2 className="w-6 h-6 text-gray-700 animate-spin mx-auto mb-3" />
                   <p className="text-gray-500 text-sm">Cargando…</p>
+                  
                 </div>
               ) : filteredWishlist.length === 0 ? (
                 <div className="py-20 text-center">

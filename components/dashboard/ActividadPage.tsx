@@ -69,11 +69,16 @@ export default function ActividadPage({
   }
 
   async function handleMarkSold(cardId: string) {
-    await fetch(`/api/cards/${cardId}`, {
+    const res = await fetch(`/api/cards/${cardId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "sold" }),
     });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      console.error("handleMarkSold:", json?.error ?? res.statusText);
+      return;
+    }
     router.refresh();
   }
 
