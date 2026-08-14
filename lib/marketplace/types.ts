@@ -19,7 +19,7 @@ export interface MarketplaceCard {
 }
 
 export interface MarketplaceStats {
-  listingCount: number;
+  listingValue: number;
   floorPrice: number | null;
   soldVolume: number;
   heroImage: string | null;
@@ -37,6 +37,11 @@ export interface WishlistDemand {
   image_url: string | null;
   variant: string | null;
   wish_count: number;
+  // Current status of a matching listing — "available" wins over "hold"
+  // over "sold" when more than one card shares this name (see
+  // get_wishlist_demand). Always present: rows without any matching card
+  // are filtered out by the function itself.
+  status: CardStatus;
 }
 
 // A marketplace listing ranked by combined community activity (wishlist

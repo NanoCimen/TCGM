@@ -48,9 +48,11 @@ export default async function DashboardPage() {
     supabase
       .from("cards")
       .select(
-        "id, card_name, set_name, card_number, variant, image_url, official_image_url, price_usd, status, created_at"
+        "id, card_name, set_name, card_number, variant, image_url, official_image_url, price_usd, status, created_at, seller_id, owner_id"
       )
-      .eq("seller_id", user.id)
+      // Cards I'm selling, plus cards I bought (owner_id set once the
+      // seller confirms delivery) — the latter show up in "Colección" too.
+      .or(`seller_id.eq.${user.id},owner_id.eq.${user.id}`)
       .order("created_at", { ascending: false }),
     supabase
       .from("offers")

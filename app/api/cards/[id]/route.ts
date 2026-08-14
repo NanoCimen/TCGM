@@ -47,6 +47,30 @@ export async function PATCH(
   if (status === "available" && price_usd !== undefined) {
     updateData.price_usd = price_usd;
   }
+  // Refreshed every time a card actually goes live — first publish, a
+  // republish after being pulled to draft, or a resold card starting a new
+  // listing cycle — so "Publicado" reflects reality, not the original
+  // upload date.
+  if (status === "available") {
+    updateData.published_at = new Date().toISOString();
+  }
+
+  // Delivery confirmed — this is the transaction's closing step, done in
+  // person over WhatsApp; the app just records it. Hand the card over to
+  // the buyer (owner_id) so it shows up in their own "Colección", while
+  // seller_id stays put so the seller keeps this in their "Ventas" history.
+  let acceptedBuyerId: string | null = null;
+  if (status === "sold") {
+    const { data: acceptedOffer } = await supabase
+      .from("offers")
+      .select("buyer_id")
+      .eq("card_id", params.id)
+      .eq("status", "accepted")
+      .maybeSingle();
+
+    acceptedBuyerId = acceptedOffer?.buyer_id ?? null;
+    if (acceptedBuyerId) updateData.owner_id = acceptedBuyerId;
+  }
 
   const { error } = await supabase.from("cards").update(updateData).eq("id", card!.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -60,23 +84,14 @@ export async function PATCH(
       .eq("status", "pending");
   }
 
-  // Delivery confirmed — let the buyer know their purchase is complete
-  if (status === "sold") {
-    const { data: acceptedOffer } = await supabase
-      .from("offers")
-      .select("buyer_id")
-      .eq("card_id", params.id)
-      .eq("status", "accepted")
-      .maybeSingle();
-
-    if (acceptedOffer) {
-      await supabase.from("notifications").insert({
-        user_id: acceptedOffer.buyer_id,
-        type: "sale_completed",
-        card_id: params.id,
-        message: `¡Entrega confirmada! "${card!.card_name}" ya es tuya.`,
-      });
-    }
+  // Let the buyer know their purchase is complete
+  if (status === "sold" && acceptedBuyerId) {
+    await supabase.from("notifications").insert({
+      user_id: acceptedBuyerId,
+      type: "sale_completed",
+      card_id: params.id,
+      message: `¡Entrega confirmada! "${card!.card_name}" ya es tuya.`,
+    });
   }
 
   // Wishlist-match notifications for newly published cards are handled by

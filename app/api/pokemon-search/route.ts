@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
+  const set = searchParams.get("set")?.trim();
 
   if (!q || q.length < 2) {
     return NextResponse.json({ data: [] });
@@ -12,13 +13,20 @@ export async function GET(request: Request) {
   // apostrophes inside a quoted phrase intermittently 500 on their end,
   // e.g. searching "Ethan's Magcargo").
   const escaped = q.replace(/'/g, "\\'");
-  const nameQuery = q.includes(" ")
+  let nameQuery = q.includes(" ")
     ? `name:"${escaped}"`
     : `name:${escaped}*`;
 
+  if (set) {
+    nameQuery += ` set.name:"${set.replace(/'/g, "\\'")}"`;
+  }
+
   const url = new URL("https://api.pokemontcg.io/v2/cards");
   url.searchParams.set("q", nameQuery);
-  url.searchParams.set("pageSize", "24");
+  // High pageSize so every printing of a name (a common Pokémon like
+  // Slowpoke has 30+ across sets) comes back in one shot instead of only
+  // the newest few sets — the upstream max is 250.
+  url.searchParams.set("pageSize", "250");
   url.searchParams.set("select", "id,name,number,set,images,rarity");
   url.searchParams.set("orderBy", "-set.releaseDate");
 

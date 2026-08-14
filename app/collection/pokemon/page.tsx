@@ -23,6 +23,7 @@ type CardRow = {
   tcg_market_price: number | null;
   status: string;
   created_at: string;
+  published_at: string | null;
   seller_id: string;
   variant: string | null;
   language: string | null;
@@ -42,6 +43,29 @@ type OfferRow = {
   seller: { display_name: string | null } | { display_name: string | null }[] | null;
 };
 
+type SoldOfferCard = {
+  id: string;
+  card_name: string;
+  set_name: string | null;
+  card_number: string | null;
+  image_url: string | null;
+  official_image_url: string | null;
+  variant: string | null;
+  language: string | null;
+  is_graded: boolean | null;
+  grade: string | null;
+  grade_company: string | null;
+};
+
+type SoldOfferRow = {
+  id: string;
+  offer_price: number;
+  responded_at: string | null;
+  created_at: string;
+  cards: SoldOfferCard | SoldOfferCard[] | null;
+  seller: { display_name: string | null } | { display_name: string | null }[] | null;
+};
+
 function firstOf<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
@@ -49,27 +73,40 @@ function firstOf<T>(v: T | T[] | null): T | null {
 export default async function PokemonCollection() {
   const supabase = await createClient();
 
-  const [{ data: cards }, { data: soldCards }, { data: sellerRows }, { data: sales }] =
+  const [{ data: cards }, { data: soldOffers }, { data: sales }] =
     await Promise.all([
       supabase
         .from("cards")
         .select(
           `id, card_name, set_name, card_number, image_url, official_image_url,
-           price_usd, tcg_market_price, status, created_at, seller_id,
+           price_usd, tcg_market_price, status, created_at, published_at, seller_id,
            variant, language, is_graded, grade, grade_company,
            users!seller_id ( display_name )`
         )
-        .in("status", ["available", "hold", "sold"])
+        // Reserved (hold) and sold cards are handled elsewhere: hold is
+        // pulled off the market entirely, and sold cards come from the
+        // offers-based history below instead of cards.status (see comment
+        // there), so this only needs the live listings.
+        .eq("status", "available")
         .order("created_at", { ascending: false })
         .limit(300),
+      // The "Vendidas" tab and market volume both come from accepted
+      // offers, not cards.status = 'sold' — a sold card's status resets to
+      // draft/available if the buyer relists it, so a status-based query
+      // would silently drop real historical sales (and zero out the
+      // volume) the moment a card gets resold. Offers are append-only, so
+      // this is a permanent record and also naturally shows a card more
+      // than once if it's been sold multiple times.
       supabase
-        .from("cards")
-        .select("price_usd")
-        .eq("status", "sold"),
-      supabase
-        .from("cards")
-        .select("seller_id")
-        .eq("status", "available"),
+        .from("offers")
+        .select(
+          `id, offer_price, responded_at, created_at,
+           cards:card_id ( id, card_name, set_name, card_number, image_url, official_image_url, variant, language, is_graded, grade, grade_company ),
+           seller:users!seller_id ( display_name )`
+        )
+        .eq("status", "accepted")
+        .order("responded_at", { ascending: false })
+        .limit(300),
       supabase
         .from("offers")
         .select(
@@ -83,11 +120,41 @@ export default async function PokemonCollection() {
         .limit(30),
     ]);
 
-  const soldVolume = (soldCards ?? []).reduce(
-    (sum, c) => sum + (c.price_usd ?? 0),
+  const soldVolume = (soldOffers ?? []).reduce(
+    (sum, o) => sum + (o.offer_price ?? 0),
     0
   );
-  const uniqueSellers = new Set((sellerRows ?? []).map((r) => r.seller_id)).size;
+
+  const soldHistory: CollectionCard[] = ((soldOffers ?? []) as SoldOfferRow[])
+    .map((row): CollectionCard | null => {
+      const card = firstOf(row.cards);
+      const seller = firstOf(row.seller);
+      if (!card) return null;
+      return {
+        id: card.id,
+        card_name: card.card_name,
+        set_name: card.set_name,
+        card_number: card.card_number,
+        image_url: card.image_url,
+        official_image_url: card.official_image_url,
+        price_usd: row.offer_price,
+        tcg_market_price: null,
+        status: "sold",
+        created_at: row.responded_at ?? row.created_at,
+        published_at: null,
+        // seller_id isn't the card's *current* seller_id (which may have
+        // changed via a resell) — it's irrelevant here anyway, since a
+        // sold-history row is never buyable, so isOwn/canBuy don't apply.
+        seller_id: "",
+        seller_name: seller?.display_name ?? "Vendedor",
+        variant: card.variant ?? "Regular",
+        language: card.language ?? "EN",
+        is_graded: card.is_graded ?? false,
+        grade: card.grade,
+        grade_company: card.grade_company,
+      };
+    })
+    .filter((c): c is CollectionCard => c !== null);
 
   const mapped: CollectionCard[] = ((cards ?? []) as CardRow[]).map((row) => {
     const seller = Array.isArray(row.users) ? row.users[0] : row.users;
@@ -102,6 +169,7 @@ export default async function PokemonCollection() {
       tcg_market_price: row.tcg_market_price,
       status: row.status,
       created_at: row.created_at,
+      published_at: row.published_at,
       seller_id: row.seller_id,
       seller_name: seller?.display_name ?? "Vendedor",
       variant: row.variant ?? "Regular",
@@ -112,7 +180,8 @@ export default async function PokemonCollection() {
     };
   });
 
-  const available = mapped.filter((c) => c.status === "available");
+  // `cards` was already queried as status = "available" only.
+  const available = mapped;
   const prices = available.map((c) => c.price_usd).filter((p): p is number => p != null);
   const floorPrice = prices.length ? Math.min(...prices) : null;
 
@@ -120,7 +189,6 @@ export default async function PokemonCollection() {
     floorPrice,
     listedCount: available.length,
     soldVolume,
-    uniqueSellers,
   };
 
   const salesActivity: SaleActivity[] = ((sales ?? []) as OfferRow[])
@@ -142,6 +210,11 @@ export default async function PokemonCollection() {
     .filter((s): s is SaleActivity => s != null);
 
   return (
-    <PokemonCollectionPage cards={mapped} stats={stats} sales={salesActivity} />
+    <PokemonCollectionPage
+      cards={mapped}
+      soldHistory={soldHistory}
+      stats={stats}
+      sales={salesActivity}
+    />
   );
 }

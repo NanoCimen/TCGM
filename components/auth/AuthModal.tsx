@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   X,
@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
-import { friendlyUniqueViolation } from "@/lib/supabase/profileErrors";
 import OtpInput from "./OtpInput";
 
 export type AuthMode = "login" | "register";
@@ -84,7 +83,6 @@ export default function AuthModal({
   const [phone, setPhone] = useState("");
   const [registerStep, setRegisterStep] = useState<RegisterStep>("email");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [singleAccount, setSingleAccount] = useState(false);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(
     null
@@ -105,7 +103,6 @@ export default function AuthModal({
     setPhone("");
     setRegisterStep("email");
     setAcceptedTerms(false);
-    setSingleAccount(false);
     setLoading(false);
     setOauthLoading(null);
     setError("");
@@ -154,6 +151,24 @@ export default function AuthModal({
     }, 1000);
     return () => window.clearInterval(timer);
   }, [resendCooldown]);
+
+  // Login has its own success screen — show it briefly, then close.
+  // Registration must NOT auto-close: it still has terms/password/profile
+  // steps ahead, even though Supabase already signs the user in right after
+  // OTP verification (which used to trigger a parent-level auth listener to
+  // close the modal mid-flow — see MarketplacePage/CardDetailClient/
+  // PokemonCollectionPage, which no longer do this). onClose is read via a
+  // ref so a parent re-render (a new inline onClose) can't reset this timer.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!loginSuccess) return;
+    const timer = window.setTimeout(() => onCloseRef.current(), 1600);
+    return () => window.clearTimeout(timer);
+  }, [loginSuccess]);
 
   const muted = isDark ? "text-gray-400" : "text-gray-500";
   const text = isDark ? "text-white" : "text-gray-900";
@@ -311,25 +326,21 @@ export default function AuthModal({
     }
 
     setLoading(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setLoading(false);
-      setError("Tu sesión expiró. Intenta de nuevo.");
-      return;
-    }
-
-    const { error: upsertError } = await supabase.from("users").upsert(
-      { id: user.id, display_name: name, phone: phoneDigits },
-      { onConflict: "id" }
-    );
+    // Written server-side (same endpoint ProfileSettings uses) rather than
+    // upserting straight from the browser client — right after updateUser()
+    // rotates the session in the password step, a client-side write here
+    // could race the session/cookie sync and get rejected by RLS as
+    // unauthenticated even though the user is, in fact, signed in.
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ display_name: name, phone: phoneDigits }),
+    });
+    const json = await res.json().catch(() => ({}));
     setLoading(false);
 
-    if (upsertError) {
-      setError(friendlyUniqueViolation(upsertError) ?? upsertError.message);
+    if (!res.ok) {
+      setError(json.error ?? "No se pudo guardar tu perfil. Intenta de nuevo.");
       return;
     }
 
@@ -813,14 +824,18 @@ export default function AuthModal({
               <div className="space-y-4">
                 <div className="space-y-3">
                   <a
-                    href="#"
+                    href="/terminos"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className={`w-full flex items-center justify-between px-4 py-3.5 border rounded-xl text-sm font-semibold transition-colors ${btnOutline}`}
                   >
                     Ver Términos
                     <ExternalLink className="w-4 h-4 opacity-50" />
                   </a>
                   <a
-                    href="#"
+                    href="/privacidad"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className={`w-full flex items-center justify-between px-4 py-3.5 border rounded-xl text-sm font-semibold transition-colors ${btnOutline}`}
                   >
                     Ver Política de Privacidad
@@ -842,20 +857,6 @@ export default function AuthModal({
                   </span>
                 </label>
 
-                <label
-                  className={`flex items-start gap-3 cursor-pointer text-sm ${text}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={singleAccount}
-                    onChange={(e) => setSingleAccount(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-gray-400 text-brand focus:ring-brand"
-                  />
-                  <span>
-                    Acepto tener solo una cuenta en la plataforma.
-                  </span>
-                </label>
-
                 {error && (
                   <p className="text-red-500 text-xs">{error}</p>
                 )}
@@ -870,7 +871,7 @@ export default function AuthModal({
                   </button>
                   <button
                     type="button"
-                    disabled={!acceptedTerms || !singleAccount}
+                    disabled={!acceptedTerms}
                     onClick={() => {
                       setError("");
                       setRegisterStep("password");
@@ -991,7 +992,6 @@ export default function AuthModal({
                       setPhone(e.target.value);
                       if (error) setError("");
                     }}
-                    placeholder="WhatsApp (ej: 8091234567)"
                     maxLength={15}
                     className={`flex-1 py-3.5 pl-3 pr-4 text-sm outline-none bg-transparent ${inputBg}`}
                   />

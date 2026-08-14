@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, CheckCheck, Loader2, MessageCircle, Pencil, Plus, Trash2, TrendingDown, TrendingUp, X } from "lucide-react";
@@ -40,6 +41,8 @@ export type DashboardCard = {
   price_usd: number | null;
   status: string;
   created_at: string;
+  seller_id: string;
+  owner_id: string | null;
 };
 
 export type OfferWithDetails = {
@@ -489,12 +492,20 @@ export default function MyCardsDashboard({
   const [deleteModal, setDeleteModal] = useState<DeleteModalData | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  const [relisting, setRelisting] = useState<string | null>(null);
+
   const name = displayName || email;
   const initials = name.substring(0, 2).toUpperCase();
 
+  // A card someone else sold that I bought — owner_id is only set once the
+  // seller confirms delivery (see /api/cards/[id]). It's "sold" from the
+  // seller's side, but from mine it just belongs to me now.
+  const isPurchased = (c: DashboardCard) =>
+    c.owner_id === userId && c.seller_id !== userId;
+
   const drafts = cards.filter((c) => c.status === "draft");
   const available = cards.filter((c) => c.status === "available");
-  const sold = cards.filter((c) => c.status === "sold");
+  const sold = cards.filter((c) => c.status === "sold" && !isPurchased(c));
   const held = cards.filter((c) => c.status === "hold");
 
   const portfolioUsd = [...drafts, ...available].reduce((sum, c) => sum + (c.price_usd ?? 0), 0);
@@ -551,8 +562,14 @@ export default function MyCardsDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, sold.length]);
 
-  const pendingReceived = receivedOffers.filter((o) => o.status === "pending").length;
-  const pendingMade = madeOffers.filter((o) => o.status === "pending").length;
+  // "Ofertas recibidas/hechas" is for offers still awaiting a decision —
+  // once accepted, an offer moves to "Actividad" instead (and declined/
+  // cancelled ones just stop being actionable). Without this filter,
+  // accepted offers were showing in both tabs at once.
+  const pendingReceivedOffers = receivedOffers.filter((o) => o.status === "pending");
+  const pendingMadeOffers = madeOffers.filter((o) => o.status === "pending");
+  const pendingReceived = pendingReceivedOffers.length;
+  const pendingMade = pendingMadeOffers.length;
 
   // Group messages into threads: key = `${card_id}::${other_user_id}`
   const threadMap = new Map<
@@ -644,6 +661,21 @@ export default function MyCardsDashboard({
       return;
     }
     router.refresh();
+  }
+
+  async function handleRelist(cardId: string) {
+    setRelisting(cardId);
+    try {
+      const res = await fetch(`/api/cards/${cardId}/relist`, { method: "POST" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        console.error("handleRelist:", json?.error ?? res.statusText);
+        return;
+      }
+      router.refresh();
+    } finally {
+      setRelisting(null);
+    }
   }
 
   async function handleCloseConversation(cardId: string, otherUserId: string) {
@@ -757,6 +789,14 @@ export default function MyCardsDashboard({
           })}
         </div>
 
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
         {/* Colección */}
         {tab === "coleccion" && (
           <>
@@ -815,7 +855,7 @@ export default function MyCardsDashboard({
               />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {cards.filter((c) => c.status !== "sold").map((card) => {
+                {cards.filter((c) => c.status !== "sold" || isPurchased(c)).map((card) => {
                   const pendingOffers = offerCountByCard[card.id] ?? 0;
                   return (
                     <div
@@ -856,14 +896,41 @@ export default function MyCardsDashboard({
                         <p className="font-mono text-sm font-bold text-white truncate">
                           {card.price_usd != null ? formatDOP(card.price_usd) : "—"}
                         </p>
-                        <span className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">
-                          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[card.status] ?? "bg-gray-600"}`} />
-                          {STATUS_LABEL[card.status] ?? card.status}
-                        </span>
+                        {isPurchased(card) ? (
+                          <span className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                            Comprada
+                          </span>
+                        ) : (
+                          <span className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">
+                            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[card.status] ?? "bg-gray-600"}`} />
+                            {STATUS_LABEL[card.status] ?? card.status}
+                          </span>
+                        )}
                       </div>
 
                       {/* Seller quick actions */}
                       <div className="flex gap-1.5 mt-auto pt-1 flex-wrap">
+                        {/* Purchased: view it, or reclaim it into the normal
+                            draft → publish flow to resell it */}
+                        {isPurchased(card) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleRelist(card.id)}
+                              disabled={relisting === card.id}
+                              className="flex-1 text-[10px] font-bold py-1.5 px-2 rounded-lg bg-brand/10 text-brand border border-brand/20 hover:bg-brand/20 transition-colors truncate disabled:opacity-50"
+                            >
+                              {relisting === card.id ? "Revendiendo..." : "Revender"}
+                            </button>
+                            <Link
+                              href={`/cards/${card.id}`}
+                              className="text-[10px] font-bold py-1.5 px-2 rounded-lg border border-gray-800 text-gray-500 hover:text-white hover:border-gray-600 transition-colors text-center truncate flex-shrink-0"
+                            >
+                              Ver
+                            </Link>
+                          </>
+                        )}
                         {/* Draft: publish + delete */}
                         {card.status === "draft" && (
                           <>
@@ -1096,17 +1163,18 @@ export default function MyCardsDashboard({
           </>
         )}
 
-        {/* Ofertas recibidas */}
+        {/* Ofertas recibidas — only pending; once resolved, an offer moves
+            to Actividad (accepted) or just stops being actionable (declined). */}
         {tab === "ofertas-recibidas" && (
           <>
-            {receivedOffers.length === 0 ? (
+            {pendingReceivedOffers.length === 0 ? (
               <EmptyState
                 title="No tienes ofertas recibidas"
                 subtitle="Cuando alguien haga una oferta por tus cartas, la verás aquí."
               />
             ) : (
               <div className="space-y-3">
-                {receivedOffers.map((offer) => (
+                {pendingReceivedOffers.map((offer) => (
                   <OfferCard
                     key={offer.id}
                     offer={offer}
@@ -1120,17 +1188,17 @@ export default function MyCardsDashboard({
           </>
         )}
 
-        {/* Ofertas hechas */}
+        {/* Ofertas hechas — same pending-only scoping */}
         {tab === "ofertas-hechas" && (
           <>
-            {madeOffers.length === 0 ? (
+            {pendingMadeOffers.length === 0 ? (
               <EmptyState
                 title="No has hecho ofertas"
                 subtitle="Las ofertas que hagas por cartas de otros coleccionistas aparecerán aquí."
               />
             ) : (
               <div className="space-y-3">
-                {madeOffers.map((offer) => (
+                {pendingMadeOffers.map((offer) => (
                   <OfferCard
                     key={offer.id}
                     offer={offer}
@@ -1181,6 +1249,8 @@ export default function MyCardsDashboard({
             )}
           </>
         )}
+        </motion.div>
+        </AnimatePresence>
       </DashboardPageContainer>
 
       {/* Publish modal */}

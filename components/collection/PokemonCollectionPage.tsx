@@ -44,6 +44,7 @@ export type CollectionCard = {
   tcg_market_price: number | null;
   status: string;
   created_at: string;
+  published_at: string | null;
   seller_id: string;
   seller_name: string;
   variant: string;
@@ -57,7 +58,6 @@ export type CollectionStats = {
   floorPrice: number | null;
   listedCount: number;
   soldVolume: number;
-  uniqueSellers: number;
 };
 
 export type SaleActivity = {
@@ -305,7 +305,7 @@ function CardRow({
       {/* Listed */}
       <div className="text-right">
         <span className="text-xs font-mono text-gray-600">
-          {timeAgo(card.created_at)}
+          {timeAgo(card.published_at ?? card.created_at)}
         </span>
       </div>
     </div>
@@ -405,7 +405,7 @@ function MobileCardRow({
 
 function WishlistRow({ item }: { item: WishlistDemand }) {
   return (
-    <div className="grid grid-cols-[1fr_140px_64px] gap-3 px-4 py-4 items-center hover:bg-white/[0.03] transition-colors group border-b border-gray-900 last:border-0">
+    <div className="grid grid-cols-[1fr_100px_180px] gap-3 px-4 py-4 items-center hover:bg-white/[0.03] transition-colors group border-b border-gray-900 last:border-0">
       <div className="flex items-center gap-3.5 min-w-0">
         <div className="w-11 h-[3.85rem] flex-shrink-0 rounded overflow-hidden bg-gray-900">
           <CardThumbnail src={item.image_url} alt={item.card_name} className="w-full h-full" />
@@ -458,10 +458,12 @@ type SortKey = "recent" | "price_asc" | "price_desc" | "name";
 
 export default function PokemonCollectionPage({
   cards,
+  soldHistory,
   stats,
   sales,
 }: {
   cards: CollectionCard[];
+  soldHistory: CollectionCard[];
   stats: CollectionStats;
   sales: SaleActivity[];
 }) {
@@ -473,7 +475,7 @@ export default function PokemonCollectionPage({
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
-  const [statusView, setStatusView] = useState<"available" | "hold" | "sold" | "wishlist">("available");
+  const [statusView, setStatusView] = useState<"all" | "available" | "sold" | "wishlist">("available");
   const [wishlistItems, setWishlistItems] = useState<WishlistDemand[]>([]);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [variantFilter, setVariantFilter] = useState<Set<string>>(new Set());
@@ -529,9 +531,9 @@ export default function PokemonCollectionPage({
     };
   }, [user]);
 
-  useEffect(() => {
-    if (user) setAuthModalOpen(false);
-  }, [user]);
+  // AuthModal closes itself once it's actually done (see AuthModal.tsx) —
+  // closing it here on sign-in would cut registration off right after the
+  // OTP step, before terms/password/profile.
 
   // "Deseadas" shows demand aggregated across ALL users' wishlists (a "hot
   // cards" leaderboard), not the current user's own list — so it loads once
@@ -596,10 +598,16 @@ export default function PokemonCollectionPage({
   }, [cards]);
 
   const filteredCards = useMemo(() => {
-    let list = [...cards];
+    // "Vendidas" comes from soldHistory (built from accepted offers), not
+    // cards — cards only ever holds "available" listings now, so a sold
+    // card's status filter would always come up empty the moment it's been
+    // resold (its live status moved on to draft/available again).
+    let list = statusView === "sold" ? [...soldHistory] : [...cards];
 
-    // Status
-    if (statusView !== "wishlist") {
+    // Status — "all"/"sold" already picked their full source list above
+    // (cards is available-only; soldHistory is sold-only); anything else
+    // narrows by exact status.
+    if (statusView !== "wishlist" && statusView !== "all" && statusView !== "sold") {
       list = list.filter((c) => c.status === statusView);
     }
 
@@ -640,7 +648,7 @@ export default function PokemonCollectionPage({
     else list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return list;
-  }, [cards, statusView, variantFilter, langFilter, setFilter, gradedFilter, search, sort]);
+  }, [cards, soldHistory, statusView, variantFilter, langFilter, setFilter, gradedFilter, search, sort]);
 
   function toggleSet<T>(set: Set<T>, val: T): Set<T> {
     const next = new Set(set);
@@ -657,8 +665,8 @@ export default function PokemonCollectionPage({
       <div className="space-y-1.5 pb-3 border-b border-gray-800">
         {(
           [
-            { key: "available", label: "Comprar" },
-            { key: "hold", label: "Reservadas" },
+            { key: "all", label: "Todas" },
+            { key: "available", label: "En Venta" },
             { key: "sold", label: "Vendidas" },
             { key: "wishlist", label: "Deseadas" },
           ] as const
@@ -843,7 +851,6 @@ export default function PokemonCollectionPage({
             {[
               ["Listadas", String(stats.listedCount)],
               ["Volumen", stats.soldVolume > 0 ? formatDOP(stats.soldVolume) : "—"],
-              ["Vendedores", String(stats.uniqueSellers)],
             ].map(([label, value]) => (
               <div
                 key={label}
@@ -856,11 +863,10 @@ export default function PokemonCollectionPage({
         </div>
 
         {/* Mobile stats */}
-        <div className="lg:hidden grid grid-cols-3 gap-3 mt-5">
+        <div className="lg:hidden grid grid-cols-2 gap-3 mt-5">
           {[
             ["Listadas", String(stats.listedCount)],
             ["Volumen", stats.soldVolume > 0 ? formatDOP(stats.soldVolume) : "—"],
-            ["Vendedores", String(stats.uniqueSellers)],
           ].map(([label, value]) => (
             <div
               key={label}
@@ -944,10 +950,10 @@ export default function PokemonCollectionPage({
           {statusView === "wishlist" ? (
             <>
               {/* Table header (desktop) */}
-              <div className="hidden lg:grid grid-cols-[1fr_140px_64px] gap-3 px-4 py-2.5 border-b border-gray-800 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+              <div className="hidden lg:grid grid-cols-[1fr_100px_180px] gap-3 px-4 py-2.5 border-b border-gray-800 text-[10px] font-bold uppercase tracking-widest text-gray-600">
                 <div>Carta</div>
                 <div className="text-right">Variante</div>
-                <div className="text-right">Deseos</div>
+                <div className="text-right whitespace-nowrap">Usuarios interesados</div>
               </div>
 
               {wishlistLoading ? (

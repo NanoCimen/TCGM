@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -72,10 +73,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: offerError.message }, { status: 500 });
 
   if (isBuyNow) {
-    // Put card on hold and close all other pending offers
-    await Promise.all([
-      supabase.from("cards").update({ status: "hold" }).eq("id", card_id),
-      supabase
+    // Putting the card on hold and declining rival offers are writes to
+    // rows the buyer doesn't own (the card and other buyers' offers are the
+    // seller's to modify per RLS) — done here on the buyer's behalf as part
+    // of a validated purchase, so they need the admin client. Using the
+    // buyer's own session for these was a silent no-op: RLS filtered the
+    // update to 0 matching rows without raising an error, so the offer got
+    // recorded as accepted but the card's status never actually changed.
+    const admin = createAdminClient();
+
+    const [{ error: holdError }] = await Promise.all([
+      admin.from("cards").update({ status: "hold" }).eq("id", card_id),
+      admin
         .from("offers")
         .update({ status: "declined", responded_at: now })
         .eq("card_id", card_id)
@@ -88,6 +97,10 @@ export async function POST(req: Request) {
         message: `¡Compra directa! Alguien compró tu carta "${card.card_name}" al precio de lista.`,
       }),
     ]);
+
+    if (holdError) {
+      return NextResponse.json({ error: holdError.message }, { status: 500 });
+    }
   } else {
     await supabase.from("notifications").insert({
       user_id: card.seller_id,

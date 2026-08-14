@@ -125,7 +125,6 @@ export default function OnboardingPage() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="WhatsApp (ej: 8091234567)"
             maxLength={15}
             required
             className="w-full bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 focus:border-brand rounded-2xl py-4 pl-11 pr-4 text-white placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-brand/20 text-[15px] transition-all duration-300"

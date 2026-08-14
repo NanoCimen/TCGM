@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Check,
   ExternalLink,
@@ -268,6 +269,10 @@ export default function PriceDetails({
   )}`;
   const priceChartingUrl = `https://www.pricecharting.com/search-products?q=${encodeURIComponent(cardName)}`;
   const naverUrl = `https://search.naver.com/search.naver?query=${encodeURIComponent(cardName)}+포켓몬카드`;
+
+  const marketplaceSearchUrl = `/search?q=${encodeURIComponent(cardName)}${
+    cardNumber.trim() ? `&number=${encodeURIComponent(cardNumber.trim())}` : ""
+  }`;
 
   const selectedGradeData = isGraded
     ? getGradeData(priceData, activeCompany, activeGrade)
@@ -651,23 +656,35 @@ export default function PriceDetails({
             />
           </div>
           {!isGraded && (
-            <p className="text-xs font-bold mt-2 text-gray-400">
-              {floorPrice.loading ? (
-                "Buscando precio más bajo actual..."
-              ) : floorPrice.usd != null ? (
-                <>
-                  Precio más bajo actual:{" "}
-                  <span className="text-white">
-                    RD${(floorPrice.usd * USD_TO_DOP).toLocaleString("es-DO", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </>
-              ) : (
-                "No hay listadas"
+            <div className="flex items-center gap-2 flex-wrap mt-2">
+              <p className="text-xs font-bold text-gray-400">
+                {floorPrice.loading ? (
+                  "Buscando precio más bajo actual..."
+                ) : floorPrice.usd != null ? (
+                  <>
+                    Precio más bajo actual:{" "}
+                    <span className="text-white">
+                      RD${(floorPrice.usd * USD_TO_DOP).toLocaleString("es-DO", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </>
+                ) : (
+                  "No hay listadas"
+                )}
+              </p>
+              {!floorPrice.loading && cardName.trim() && (
+                <Link
+                  href={marketplaceSearchUrl}
+                  target="_blank"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline underline-offset-2"
+                >
+                  Ver publicaciones en TCGRD
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
               )}
-            </p>
+            </div>
           )}
         </div>
 

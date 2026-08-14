@@ -7,6 +7,7 @@ import { Camera, Check, Info, Loader2, Palette, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { DashboardPageContainer, DashboardPageHeader } from "@/components/dashboard/DashboardPageShell";
+import DeleteAccountModal from "./DeleteAccountModal";
 
 type Notifications = {
   marketplace: boolean;
@@ -125,6 +126,8 @@ export default function ProfileSettings({
   const [savingNotifs, setSavingNotifs] = useState(false);
   const [notifsSaved, setNotifsSaved] = useState(false);
   const [notifsError, setNotifsError] = useState("");
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const initials = (displayName || email).substring(0, 2).toUpperCase();
 
@@ -245,6 +248,15 @@ export default function ProfileSettings({
     const next = { marketplace: false, productUpdates: false };
     setNotifications(next);
     saveNotifications(next);
+  }
+
+  function handleAccountDeleted() {
+    const supabase = createClient();
+    // Full reload so every bit of cached auth/user state (DashboardShell,
+    // notifications polling, etc.) resets — the account no longer exists.
+    supabase.auth.signOut().finally(() => {
+      window.location.href = "/";
+    });
   }
 
   return (
@@ -578,6 +590,30 @@ export default function ProfileSettings({
             </div>
           </SectionCard>
         </section>
+
+        {/* Zona de peligro */}
+        <section>
+          <SectionTitle>Zona de peligro</SectionTitle>
+          <SectionCard>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-sm font-bold text-white">Eliminar cuenta</p>
+                <p className="text-xs text-gray-500 mt-1 max-w-md">
+                  Borra tu perfil, cartas, ofertas, mensajes y wishlist de
+                  forma permanente. Te pedimos un código por email para
+                  confirmar.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(true)}
+                className="text-xs font-bold px-4 py-2.5 rounded-lg border border-red-900/60 text-red-400 hover:bg-red-950/40 transition-colors flex-shrink-0"
+              >
+                Eliminar cuenta
+              </button>
+            </div>
+          </SectionCard>
+        </section>
         </div>
       </DashboardPageContainer>
     </DashboardShell>
@@ -597,6 +633,13 @@ export default function ProfileSettings({
         </motion.div>
       )}
     </AnimatePresence>
+
+    <DeleteAccountModal
+      open={deleteModalOpen}
+      email={email}
+      onCancel={() => setDeleteModalOpen(false)}
+      onDeleted={handleAccountDeleted}
+    />
     </>
   );
 }

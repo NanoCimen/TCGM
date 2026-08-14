@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, X, Tag, Bell } from "lucide-react";
+import { Clock, X, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -18,7 +18,6 @@ import type {
 } from "@/lib/marketplace/types";
 import {
   formatPrice,
-  formatVolume,
   statusLabel,
 } from "@/lib/marketplace/utils";
 import {
@@ -53,8 +52,8 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
       name: "Pokémon",
       publisher: "BY THE POKÉMON COMPANY",
       status: "En vivo",
-      floorPrice: formatPrice(stats.floorPrice),
-      volume: stats.soldVolume > 0 ? formatPrice(stats.soldVolume) : formatVolume(stats.listingCount) + " listados",
+      volume: stats.soldVolume > 0 ? formatPrice(stats.soldVolume) : "—",
+      listedValue: stats.listingValue > 0 ? formatPrice(stats.listingValue) : "—",
       bg: "from-blue-900 via-gray-900 to-black",
       img: COLLECTION_IMAGES.pokemon,
       cardImg: COLLECTION_IMAGES.pokemon,
@@ -65,8 +64,8 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
       name: "Magic: Earth",
       publisher: "BY WIZARDS OF THE COAST",
       status: "Próximamente",
-      floorPrice: "—",
       volume: "—",
+      listedValue: "—",
       bg: "from-amber-900 via-gray-900 to-black",
       img: COLLECTION_IMAGES.magic,
       cardImg: COLLECTION_IMAGES.magic,
@@ -77,8 +76,8 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
       name: "One Piece",
       publisher: "BY BANDAI NAMCO",
       status: "Próximamente",
-      floorPrice: "—",
       volume: "—",
+      listedValue: "—",
       bg: "from-cyan-900 via-gray-900 to-black",
       img: COLLECTION_IMAGES.onepiece,
       cardImg: COLLECTION_IMAGES.onepiece,
@@ -89,8 +88,8 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
       name: "Yu-Gi-Oh!",
       publisher: "BY KONAMI",
       status: "Próximamente",
-      floorPrice: "—",
       volume: "—",
+      listedValue: "—",
       bg: "from-purple-900 via-gray-900 to-black",
       img: COLLECTION_IMAGES.yugioh,
       cardImg: COLLECTION_IMAGES.yugioh,
@@ -148,15 +147,15 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
                         Volumen de mercado
                       </p>
                       <p className="text-xl md:text-[26px] font-mono font-bold text-white leading-none">
-                        {activeCol.floorPrice}
+                        {activeCol.volume}
                       </p>
                     </div>
                     <div>
                       <p className="text-[10px] md:text-xs font-mono font-semibold text-gray-400 uppercase tracking-widest mb-1">
-                        Listados
+                        Valor listado
                       </p>
                       <p className="text-xl md:text-[26px] font-mono font-bold text-white leading-none">
-                        {activeCol.volume}
+                        {activeCol.listedValue}
                       </p>
                     </div>
                     <div className="hidden sm:block">
@@ -669,23 +668,6 @@ function TrendingSection({
   );
 }
 
-// Static example data for the landing sections below — purely illustrative,
-// not sourced from the marketplace API.
-const BUY_ACTIVITY = [
-  { name: "Charizard VMAX Rainbow", price: "RD$18,900.00", hot: true },
-  { name: "Pikachu VMAX", price: "RD$3,540.00", hot: true },
-  { name: "Umbreon VMAX Alt Art", price: "RD$26,700.00", hot: false },
-  { name: "Mew ex 151", price: "RD$1,180.00", hot: true },
-  { name: "Gengar VMAX Alt Art", price: "RD$14,250.00", hot: false },
-];
-
-const MANAGE_ROWS: { name: string; price: string; status: string; offers: number }[] = [
-  { name: "Charizard ex", price: "RD$9,440.00", status: "Disponible", offers: 3 },
-  { name: "Blastoise VMAX", price: "RD$5,310.00", status: "Reservada", offers: 1 },
-  { name: "Rayquaza VMAX Alt Art", price: "RD$22,600.00", status: "Disponible", offers: 5 },
-  { name: "Mewtwo GX", price: "RD$2,950.00", status: "Vendida", offers: 0 },
-];
-
 function UploadSection() {
   return (
     <motion.section
@@ -738,37 +720,16 @@ function BuySection() {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
     >
-      <div className="lg:order-1 rounded-3xl border border-black/10 dark:border-white/[0.06] bg-white/40 dark:bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/[0.05]">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-            Actividad en vivo
-          </span>
-          <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
-        </div>
-        <div className="divide-y divide-black/[0.04] dark:divide-white/[0.03]">
-          {BUY_ACTIVITY.map((item) => (
-            <div key={item.name} className="flex items-center gap-3 px-6 py-3">
-              <CardThumbnail
-                src={null}
-                alt=""
-                className="w-8 h-11 rounded flex-shrink-0 border border-white/20 dark:border-white/10"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                  {item.name}
-                </p>
-                <p className="text-[11px] font-mono text-gray-500 dark:text-gray-400">
-                  {item.price}
-                </p>
-              </div>
-              {item.hot && (
-                <span className="text-[9px] font-bold uppercase tracking-widest bg-brand text-black px-2.5 py-1 rounded-full flex-shrink-0">
-                  Comprar
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+      <div className="lg:order-1 rounded-3xl border border-black/10 dark:border-white/[0.06] w-full aspect-video overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-full object-cover"
+        >
+          <source src="/videos/mercado.mp4" type="video/mp4" />
+        </video>
       </div>
 
       <div className="lg:order-2">
@@ -798,39 +759,35 @@ function WishlistSection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 text-center"
+      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
     >
-      <h2 className="neon-heading uppercase mx-auto max-w-3xl text-xl sm:text-2xl lg:text-3xl">
-        Sé el primero en enterarte
-      </h2>
-      <p className="mx-auto mt-6 max-w-xl text-sm sm:text-base text-gray-500 dark:text-gray-400">
-        Guarda las cartas que te interesan en tu wishlist y recibe una
-        notificación al instante cuando alguien las publique en el mercado.
-      </p>
-
-      <div className="mx-auto mt-10 max-w-sm rounded-xl border border-white/15 dark:border-white/10 bg-white/40 dark:bg-white/[0.04] backdrop-blur-xl px-5 py-4 flex items-start gap-3 shadow-lg text-left">
-        <div className="w-9 h-9 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center flex-shrink-0">
-          <Bell className="w-4 h-4 text-brand" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900 dark:text-white">
-            ¡Tu carta favorita fue publicada!
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Umbreon VMAX Alt Art ya está disponible
-          </p>
-        </div>
-        <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 flex-shrink-0">
-          ahora
-        </span>
+      <div>
+        <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
+          Sé el primero en enterarte
+        </h2>
+        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+          Guarda las cartas que te interesan en tu wishlist y recibe una
+          notificación al instante cuando alguien las publique en el mercado.
+        </p>
+        <Link
+          href="/wishlist"
+          className="inline-block mt-8 border border-white/20 dark:border-white/15 text-gray-900 dark:text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
+        >
+          Ver mi wishlist
+        </Link>
       </div>
 
-      <Link
-        href="/wishlist"
-        className="inline-block mt-8 border border-white/20 dark:border-white/15 text-gray-900 dark:text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
-      >
-        Ver mi wishlist
-      </Link>
+      <div className="rounded-2xl border border-white/15 dark:border-white/10 w-full aspect-video overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-full object-cover scale-130"
+        >
+          <source src="/videos/wishlist.mp4" type="video/mp4" />
+        </video>
+      </div>
     </motion.section>
   );
 }
@@ -845,7 +802,7 @@ function ManageSection() {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
     >
-      <div>
+      <div className="lg:order-2">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Gestiona tu colección y recibe ofertas
         </h2>
@@ -861,41 +818,16 @@ function ManageSection() {
         </Link>
       </div>
 
-      <div className="rounded-2xl border border-black/10 dark:border-white/[0.06] bg-white/40 dark:bg-white/[0.015] backdrop-blur-2xl overflow-hidden">
-        <div className="grid grid-cols-[minmax(160px,1fr)_100px_110px_90px] gap-4 px-5 pt-5 pb-3 border-b border-black/5 dark:border-white/[0.05] text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 font-mono">
-          <div>Carta</div>
-          <div className="text-right">Precio</div>
-          <div className="text-center">Estado</div>
-          <div className="text-right">Ofertas</div>
-        </div>
-        <div className="divide-y divide-black/[0.04] dark:divide-white/[0.03]">
-          {MANAGE_ROWS.map((row) => (
-            <div
-              key={row.name}
-              className="grid grid-cols-[minmax(160px,1fr)_100px_110px_90px] gap-4 px-5 py-3 items-center"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <CardThumbnail
-                  src={null}
-                  alt=""
-                  className="w-8 h-11 rounded flex-shrink-0 border border-white/20 dark:border-white/10"
-                />
-                <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                  {row.name}
-                </span>
-              </div>
-              <div className="text-right font-mono text-sm text-gray-900 dark:text-white">
-                {row.price}
-              </div>
-              <div className="flex justify-center">
-                <StatusBadge status={row.status} />
-              </div>
-              <div className="text-right font-mono text-sm text-gray-900 dark:text-white">
-                {row.offers}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="lg:order-1 rounded-2xl border border-black/10 dark:border-white/[0.06] w-full aspect-video overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-full object-cover"
+        >
+          <source src="/videos/gestionarcartas.mp4" type="video/mp4" />
+        </video>
       </div>
     </motion.section>
   );
@@ -1004,8 +936,9 @@ export default function MarketplacePage({
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "INITIAL_SESSION") return;
       setUser(session?.user ?? null);
-      // Give AuthModal time to show its "logged in" success message first.
-      if (session?.user) setTimeout(() => setAuthModalOpen(false), 1600);
+      // AuthModal closes itself once it's actually done (see AuthModal.tsx)
+      // — closing it here on sign-in would cut registration off right after
+      // the OTP step, before terms/password/profile.
     });
 
     return () => subscription.unsubscribe();

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import PageTransition from "@/components/PageTransition";
 import "./globals.css";
 
 const inter = Inter({
@@ -39,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
-        {children}
+        <PageTransition>{children}</PageTransition>
         <ServiceWorkerRegister />
       </body>
     </html>

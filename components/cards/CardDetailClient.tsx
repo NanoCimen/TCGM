@@ -27,6 +27,7 @@ import {
 
 export type CardDetailData = {
   id: string;
+  owner_id: string | null;
   card_name: string;
   set_name: string | null;
   card_number: string | null;
@@ -44,7 +45,21 @@ export type CardDetailData = {
   grade_company: string | null;
 };
 
-type AccordionKey = "detalles" | "notas";
+type AccordionKey = "detalles" | "notas" | "actividad";
+
+// One accepted offer for this card — its full resale history, since each
+// resale reuses the same card row but leaves the original accepted offer
+// behind in the offers table. status is "hold" until the seller confirms
+// delivery — only then does it actually count as a completed sale.
+export type CardActivityEntry = {
+  id: string;
+  priceUsd: number;
+  isBuyNow: boolean;
+  date: string;
+  buyerName: string;
+  sellerName: string;
+  status: "hold" | "sold";
+};
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "En portafolio",
@@ -257,6 +272,7 @@ export default function CardDetailClient({
   existingOffer,
   lastSaleUsd,
   cardOffers = [],
+  cardActivity = [],
 }: {
   card: CardDetailData;
   sellerId: string;
@@ -266,6 +282,7 @@ export default function CardDetailClient({
   existingOffer: { id: string; offer_price: number } | null;
   lastSaleUsd: number | null;
   cardOffers?: OfferWithDetails[];
+  cardActivity?: CardActivityEntry[];
 }) {
   const router = useRouter();
   const [currentUserId, setCurrentUserId] = useState(initialUserId);
@@ -287,8 +304,9 @@ export default function CardDetailClient({
       if (event === "INITIAL_SESSION") return;
       setCurrentUserId(session?.user?.id ?? null);
       setEmail(session?.user?.email ?? null);
-      // Give AuthModal time to show its "logged in" success message first.
-      if (session?.user) setTimeout(() => setAuthModalOpen(false), 1600);
+      // AuthModal closes itself once it's actually done (see AuthModal.tsx)
+      // — closing it here on sign-in would cut registration off right after
+      // the OTP step, before terms/password/profile.
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -407,6 +425,15 @@ export default function CardDetailClient({
   }
 
   const isSeller = !!currentUserId && currentUserId === sellerId;
+  // Who actually possesses the card right now — the buyer, once the seller
+  // confirms delivery (owner_id set), otherwise still the seller. Distinct
+  // from isSeller: after a sale and before the buyer re-lists it, these are
+  // two different people, and the buyer shouldn't see "make an offer" /
+  // "start a conversation with the seller" CTAs on a card they already own.
+  const currentOwnerId = card.owner_id ?? sellerId;
+  const isOwner = !!currentUserId && currentUserId === currentOwnerId;
+
+  const pendingCardOffers = cardOffers.filter((o) => o.status === "pending");
 
   async function handlePublishListing() {
     const priceUsd = parseFloat(publishPrice);
@@ -546,14 +573,14 @@ export default function CardDetailClient({
       >
         <div className="max-w-screen-xl mx-auto px-6 h-full flex items-center justify-between">
           <Link
-            href={isSeller ? "/dashboard" : "/collection/pokemon"}
+            href={isOwner ? "/dashboard" : "/collection/pokemon"}
             className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-white transition-colors duration-200"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isSeller ? "Mi colección" : "Mercado"}
+            {isOwner ? "Mi colección" : "Mercado"}
           </Link>
           <div className="flex items-center gap-3">
-            {currentUserId && !isSeller && (
+            {currentUserId && !isOwner && (
               <button
                 type="button"
                 onClick={toggleSave}
@@ -809,6 +836,23 @@ export default function CardDetailClient({
             animate="visible"
             className="flex flex-col gap-2.5 mb-9"
           >
+            {/* Purchased and owned, not (yet) my own listing — no seller
+                management here since I'm not seller_id; resell from Mi
+                colección instead, which hands it into that same flow. */}
+            {isOwner && !isSeller && (
+              <div className="space-y-2.5">
+                <div className="w-full text-sm font-medium py-3.5 rounded-2xl text-center border border-cyan-900/50 bg-cyan-950/20 text-cyan-400">
+                  Esta carta es tuya
+                </div>
+                <Link
+                  href="/dashboard"
+                  className="w-full block text-center border border-white/[0.09] text-gray-400 hover:text-white text-sm font-medium py-4 rounded-lg transition-colors"
+                >
+                  Revender desde Mi colección
+                </Link>
+              </div>
+            )}
+
             {/* Own listing — seller management */}
             {isSeller && (
               <div className="space-y-2.5">
@@ -1051,7 +1095,7 @@ export default function CardDetailClient({
             )}
 
             {/* Card not available */}
-            {!isSeller && !dealDone && card.status !== "available" && (
+            {!isOwner && !dealDone && card.status !== "available" && (
               <div className="w-full border border-white/[0.07] text-gray-600 text-sm font-medium py-4 rounded-2xl text-center">
                 {card.status === "hold" ? "Carta reservada" : "Carta vendida"}
               </div>
@@ -1059,7 +1103,7 @@ export default function CardDetailClient({
           </motion.div>
 
           {/* Start a conversation — messaging itself lives in Mi colección → Mensajes */}
-          {currentUserId && !isSeller && (
+          {currentUserId && !isOwner && (
             <motion.div custom={7.5} variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
               <Link
                 href="/dashboard?tab=mensajes"
@@ -1071,50 +1115,48 @@ export default function CardDetailClient({
             </motion.div>
           )}
 
-          {/* Ofertas recibidas — seller-only view of everyone's offers on this card */}
-          {isSeller && (
+          {/* Ofertas recibidas — public: anyone can see pending offers on
+              this card (amount + buyer name), so buyers know what it takes
+              to compete instead of bidding blind. Completed sales
+              (accepted/buy-now) aren't "offers" anymore — they show in
+              "Actividad de la carta" below instead. Hidden entirely (for
+              everyone, including the seller) when there's nothing pending,
+              same as the activity section below. */}
+          {pendingCardOffers.length > 0 && (
             <motion.div custom={7.5} variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">
                 Ofertas recibidas
               </p>
-              {cardOffers.length === 0 ? (
-                <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 text-center">
-                  <p className="text-sm text-gray-600">Aún no hay ofertas para esta carta.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {cardOffers.map((offer) => (
-                    <div
-                      key={offer.id}
-                      className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-3.5 flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">
-                          {offer.buyer?.display_name ?? "Comprador"}
-                        </p>
-                        <p className="text-[11px] text-gray-600">
-                          {new Date(offer.created_at).toLocaleDateString("es-DO", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-mono text-sm font-bold text-white">
-                          {formatPrice(offer.offer_price)}
-                        </p>
-                        <span
-                          className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${OFFER_STATUS_BADGE[offer.status]}`}
-                        >
-                          {offer.is_buy_now && offer.status === "accepted"
-                            ? "Compra directa"
-                            : OFFER_STATUS_LABEL[offer.status]}
-                        </span>
-                      </div>
+              <div className="space-y-2">
+                {pendingCardOffers.map((offer) => (
+                  <div
+                    key={offer.id}
+                    className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-3.5 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">
+                        {offer.buyer?.display_name ?? "Comprador"}
+                      </p>
+                      <p className="text-[11px] text-gray-600">
+                        {new Date(offer.created_at).toLocaleDateString("es-DO", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-mono text-sm font-bold text-white">
+                        {formatPrice(offer.offer_price)}
+                      </p>
+                      <span
+                        className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${OFFER_STATUS_BADGE[offer.status]}`}
+                      >
+                        {OFFER_STATUS_LABEL[offer.status]}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </motion.div>
           )}
 
@@ -1227,7 +1269,9 @@ export default function CardDetailClient({
                 <p className="text-[10px] font-bold tracking-widest uppercase text-gray-500">
                   Vendedor
                 </p>
-                <p className="text-sm font-semibold text-white truncate">{sellerName}</p>
+                <p className="text-sm font-semibold text-white truncate">
+                  {isSeller ? "Tú" : sellerName}
+                </p>
               </div>
               {sellerRating && (
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -1322,12 +1366,61 @@ export default function CardDetailClient({
               </div>
             </AccordionItem>
 
+            {cardActivity.length > 0 && (
+              <AccordionItem
+                title="Actividad de la carta"
+                isOpen={openSection === "actividad"}
+                onToggle={() => toggle("actividad")}
+                index={10}
+              >
+                <div className="divide-y divide-white/[0.04]">
+                  {cardActivity.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between gap-3 px-5 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {entry.sellerName} → {entry.buyerName}
+                        </p>
+                        <p className="text-[11px] text-gray-600">
+                          {new Date(entry.date).toLocaleDateString("es-DO", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          {entry.isBuyNow ? " · Compra directa" : " · Oferta aceptada"}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-mono text-sm font-bold text-white">
+                          {formatPrice(entry.priceUsd)}
+                        </p>
+                        <span
+                          className={`inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                            entry.status === "hold"
+                              ? "bg-amber-500/10 text-amber-400"
+                              : "bg-gray-800 text-gray-400"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[entry.status]}`}
+                          />
+                          {STATUS_LABEL[entry.status]}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </AccordionItem>
+            )}
+
             {card.notes && (
               <AccordionItem
                 title="Notas del vendedor"
                 isOpen={openSection === "notas"}
                 onToggle={() => toggle("notas")}
-                index={10}
+                index={11}
               >
                 <p className="px-5 py-4 text-sm text-gray-400 leading-relaxed">
                   {card.notes}

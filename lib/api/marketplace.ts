@@ -99,19 +99,34 @@ export async function getMarketplaceStats(
 
   const withImages = cards.filter((c) => c.image_url);
 
-  // Total value of completed sales for volume display
-  const { data: soldCards } = await supabase
-    .from("cards")
-    .select("price_usd")
-    .eq("status", "sold");
+  // `cards` is capped at 24 (getMarketplaceCards' page size), so it can't be
+  // used for the real totals below — query them separately.
+  //
+  // Volume comes from accepted offers, not cards.status = 'sold' — a sold
+  // card's status resets to 'draft'/'available' if the buyer relists it, so
+  // a status-based sum would silently erase real historical sales the
+  // moment a card gets resold. Offers are append-only, so this total is
+  // cumulative across every user, forever.
+  const [{ data: acceptedOffers }, { data: availableCards }] = await Promise.all([
+    supabase.from("offers").select("offer_price").eq("status", "accepted"),
+    supabase
+      .from("cards")
+      .select("price_usd")
+      .eq("status", "available")
+      .not("price_usd", "is", null),
+  ]);
 
-  const soldVolume = (soldCards ?? []).reduce(
+  const soldVolume = (acceptedOffers ?? []).reduce(
+    (sum, o) => sum + (o.offer_price ?? 0),
+    0
+  );
+  const listingValue = (availableCards ?? []).reduce(
     (sum, c) => sum + (c.price_usd ?? 0),
     0
   );
 
   return {
-    listingCount: cards.length,
+    listingValue,
     floorPrice: prices.length ? Math.min(...prices) : null,
     soldVolume,
     heroImage: withImages[0]?.image_url ?? null,
@@ -200,7 +215,20 @@ export async function getTrendingCards(limit = 6): Promise<TrendingCard[]> {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  const top = scored.slice(0, limit);
+  // Multiple listings of the same card (different sellers, or a resold
+  // card under a new listing) share the same interactionScore, since it's
+  // computed per card_name — without this, they could both land in the
+  // top N and show the same card twice. Keep only the highest-ranked
+  // listing per distinct card name.
+  const seenNames = new Set<string>();
+  const deduped = scored.filter((c) => {
+    const key = c.card_name.toLowerCase();
+    if (seenNames.has(key)) return false;
+    seenNames.add(key);
+    return true;
+  });
+
+  const top = deduped.slice(0, limit);
   const topIds = top.map((c) => c.id);
 
   // RLS on offers only lets a user read their own offers, so a plain select
