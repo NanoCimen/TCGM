@@ -14,6 +14,14 @@
 -- an existing listing *before* aggregating by pokemon_tcg_id. Every row
 -- that survives the filter has a real match, so wish_count only counts
 -- genuine demand and the final lateral join can never come up empty.
+--
+-- 20260813_wishlist_demand_status.sql (which added the `status` output
+-- column) was itself never actually deployed — the live function still had
+-- the older 7-column signature from 20260813_wishlist_demand_only_existing_cards.sql,
+-- so `create or replace` alone fails with "cannot change return type of
+-- existing function" (Postgres can't alter OUT parameters that way). Drop
+-- it first so this migration is self-contained and re-runnable.
+drop function if exists public.get_wishlist_demand(int);
 
 create or replace function public.get_wishlist_demand(limit_count int default 200)
 returns table (
