@@ -902,7 +902,7 @@ function Footer() {
             <span key={item.label} className="flex items-center gap-x-2">
               {index > 0 && (
                 <span aria-hidden className="text-gray-300 dark:text-gray-700">
-                  //
+                  {"//"}
                 </span>
               )}
               {item.href === null ? (
