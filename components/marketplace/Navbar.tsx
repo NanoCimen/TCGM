@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Command, Sun, Moon } from "lucide-react";
+import { Search, Command, Sun, Moon, Menu, X } from "lucide-react";
 import type { AuthMode } from "@/components/auth/AuthModal";
 import AuthMenu from "@/components/auth/AuthMenu";
 import NotificationsBell from "@/components/notifications/NotificationsBell";
@@ -59,6 +59,15 @@ export default function Navbar({
   // after scrolling stops, instead of staying pinned the whole time.
   const [hidden, setHidden] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // The desktop nav links (Inicio/Mi colección/Mercado/Nosotros) are
+  // `hidden md:flex` with no mobile equivalent — this menu is that
+  // equivalent, so mobile visitors aren't stuck with zero navigation.
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!revealOnScrollStop) return;
@@ -175,8 +184,49 @@ export default function Navbar({
             onSelectLogin={() => onAuthSelect("login")}
             onSelectRegister={() => onAuthSelect("register")}
           />
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={mobileMenuOpen}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-700 dark:text-gray-300 md:hidden"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
+
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-white/20 dark:border-white/[0.06] bg-white dark:bg-[#0a0a0a] px-6 py-4 flex flex-col">
+          <Link
+            href="/"
+            className={`py-3 font-semibold text-sm ${pathname === "/" ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
+          >
+            Inicio
+          </Link>
+          <Link
+            href="/dashboard"
+            className={`py-3 font-semibold text-sm ${inColeccion ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
+          >
+            Mi colección
+          </Link>
+          <Link
+            href="/collection/pokemon"
+            className={`py-3 font-semibold text-sm ${pathname.startsWith("/collection/pokemon") ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
+          >
+            Mercado
+          </Link>
+          <a
+            href="https://www.instagram.com/tcg.rd/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="py-3 font-semibold text-sm text-gray-700 dark:text-gray-300"
+          >
+            Nosotros
+          </a>
+        </div>
+      )}
     </motion.nav>
   );
 }

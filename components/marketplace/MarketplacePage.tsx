@@ -340,9 +340,17 @@ function scrambleDigits(digits: string): string {
 }
 
 function GlitchDigits({ digits }: { digits: string }) {
-  const [text, setText] = useState(() => scrambleDigits(digits));
+  // Must start as the real (unscrambled) digits — scrambleDigits() uses
+  // Math.random(), so seeding useState with it directly would make the
+  // server-rendered HTML and the client's first hydration pass produce
+  // different text, a hydration mismatch that forces React to ditch the
+  // server tree and re-render the entire root from scratch client-side
+  // (breaking event handlers/state everywhere, not just here, until that
+  // remount finishes). Scrambling only starts after mount instead.
+  const [text, setText] = useState(digits);
 
   useEffect(() => {
+    setText(scrambleDigits(digits));
     const id = window.setInterval(() => setText(scrambleDigits(digits)), 90);
     return () => window.clearInterval(id);
   }, [digits]);
@@ -712,6 +720,39 @@ function TrendingSection({
   );
 }
 
+// Mobile: video fills the section as a background layer with a dark scrim,
+// text sits centered on top of it (`absolute inset-0` + the caller's text
+// block at z-10). Desktop (lg:) reverts to a normal side-by-side video tile
+// via the classes each caller passes in.
+function VideoBackdrop({
+  src,
+  scale130 = false,
+  desktopClassName = "lg:rounded-2xl lg:border lg:border-white/15 dark:lg:border-white/10",
+  desktopOrderClassName = "",
+}: {
+  src: string;
+  scale130?: boolean;
+  desktopClassName?: string;
+  desktopOrderClassName?: string;
+}) {
+  return (
+    <div
+      className={`absolute inset-0 lg:static lg:aspect-video lg:w-full lg:overflow-hidden ${desktopClassName} ${desktopOrderClassName}`}
+    >
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className={`h-full w-full object-cover ${scale130 ? "scale-130" : ""}`}
+      >
+        <source src={src} type="video/mp4" />
+      </video>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10 lg:hidden" />
+    </div>
+  );
+}
+
 function UploadSection() {
   return (
     <motion.section
@@ -720,13 +761,15 @@ function UploadSection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
+      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
     >
-      <div>
+      <VideoBackdrop src="/videos/0812.mp4" scale130 />
+
+      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Sube tus cartas para vender
         </h2>
-        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
           Sube fotos de tus cartas, ponle el precio que quieras y publícalas
           en el mercado en cuestión de minutos. Sin comisiones escondidas ni
           procesos complicados.
@@ -737,18 +780,6 @@ function UploadSection() {
         >
           Subir carta
         </Link>
-      </div>
-
-      <div className="rounded-2xl border border-white/15 dark:border-white/10 w-full aspect-video overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="w-full h-full object-cover scale-130"
-        >
-          <source src="/videos/0812.mp4" type="video/mp4" />
-        </video>
       </div>
     </motion.section>
   );
@@ -762,31 +793,25 @@ function BuySection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
+      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
     >
-      <div className="lg:order-1 rounded-3xl border border-black/10 dark:border-white/[0.06] w-full aspect-video overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="w-full h-full object-cover"
-        >
-          <source src="/videos/mercado.mp4" type="video/mp4" />
-        </video>
-      </div>
+      <VideoBackdrop
+        src="/videos/mercado.mp4"
+        desktopClassName="lg:rounded-3xl lg:border lg:border-black/10 dark:lg:border-white/[0.06]"
+        desktopOrderClassName="lg:order-1"
+      />
 
-      <div className="lg:order-2">
+      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:order-2 lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Compra las cartas que te interesan
         </h2>
-        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
           Encuentra la carta específica que buscas, haz una oferta o
           cómprala al instante antes que nadie más.
         </p>
         <Link
           href="/#tendencia"
-          className="inline-block mt-8 border border-white/20 dark:border-white/15 text-gray-900 dark:text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
+          className="inline-block mt-8 border border-white/40 text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 transition-colors lg:border-white/20 lg:text-gray-900 lg:hover:bg-white/10 dark:lg:border-white/15 dark:lg:text-white dark:lg:hover:bg-white/5"
         >
           Ver mercado
         </Link>
@@ -803,34 +828,24 @@ function WishlistSection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
+      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
     >
-      <div>
+      <VideoBackdrop src="/videos/wishlist.mp4" scale130 />
+
+      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Sé el primero en enterarte
         </h2>
-        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
           Guarda las cartas que te interesan en tu wishlist y recibe una
           notificación al instante cuando alguien las publique en el mercado.
         </p>
         <Link
           href="/wishlist"
-          className="inline-block mt-8 border border-white/20 dark:border-white/15 text-gray-900 dark:text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
+          className="inline-block mt-8 border border-white/40 text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 transition-colors lg:border-white/20 lg:text-gray-900 lg:hover:bg-white/10 dark:lg:border-white/15 dark:lg:text-white dark:lg:hover:bg-white/5"
         >
           Ver mi wishlist
         </Link>
-      </div>
-
-      <div className="rounded-2xl border border-white/15 dark:border-white/10 w-full aspect-video overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="w-full h-full object-cover scale-130"
-        >
-          <source src="/videos/wishlist.mp4" type="video/mp4" />
-        </video>
       </div>
     </motion.section>
   );
@@ -844,13 +859,19 @@ function ManageSection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 grid lg:grid-cols-2 gap-12 items-center"
+      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
     >
-      <div className="lg:order-2">
+      <VideoBackdrop
+        src="/videos/gestionarcartas.mp4"
+        desktopClassName="lg:rounded-2xl lg:border lg:border-black/10 dark:lg:border-white/[0.06]"
+        desktopOrderClassName="lg:order-1"
+      />
+
+      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:order-2 lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Gestiona tu colección y recibe ofertas
         </h2>
-        <p className="mt-6 max-w-md text-sm sm:text-base text-gray-500 dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
           Mira todas tus cartas publicadas, su valor estimado, y recibe o
           acepta ofertas directamente desde tu dashboard.
         </p>
@@ -860,18 +881,6 @@ function ManageSection() {
         >
           Ir a mis cartas
         </Link>
-      </div>
-
-      <div className="lg:order-1 rounded-2xl border border-black/10 dark:border-white/[0.06] w-full aspect-video overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="w-full h-full object-cover"
-        >
-          <source src="/videos/gestionarcartas.mp4" type="video/mp4" />
-        </video>
       </div>
     </motion.section>
   );

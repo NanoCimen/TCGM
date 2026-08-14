@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TCGRD — Pokemon Card Marketplace",
+  title: "TCGRD — Marketplace",
   description:
     "Marketplace de cartas Pokemon para coleccionistas en Republica Dominicana",
   manifest: "/manifest.json",
