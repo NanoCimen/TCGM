@@ -61,14 +61,20 @@ export async function PATCH(
   // seller_id stays put so the seller keeps this in their "Ventas" history.
   let acceptedBuyerId: string | null = null;
   if (status === "sold") {
-    const { data: acceptedOffer } = await supabase
+    // A card that's been resold has one 'accepted' offer per past sale
+    // cycle (see relist/route.ts — resale reassigns seller_id but never
+    // touches old offer rows), so .maybeSingle() would error on the second+
+    // sale. Order by most recent instead and take that one — it's the offer
+    // that closed *this* sale cycle.
+    const { data: acceptedOffers } = await supabase
       .from("offers")
       .select("buyer_id")
       .eq("card_id", params.id)
       .eq("status", "accepted")
-      .maybeSingle();
+      .order("responded_at", { ascending: false, nullsFirst: false })
+      .limit(1);
 
-    acceptedBuyerId = acceptedOffer?.buyer_id ?? null;
+    acceptedBuyerId = acceptedOffers?.[0]?.buyer_id ?? null;
     if (acceptedBuyerId) updateData.owner_id = acceptedBuyerId;
   }
 
@@ -116,6 +122,17 @@ export async function DELETE(
   if (card!.status === "hold") {
     return NextResponse.json(
       { error: "No puedes retirar una carta con una transacción pendiente. Confirma la entrega primero." },
+      { status: 409 }
+    );
+  }
+  // 'sold' means delivery was already confirmed and owner_id now points to
+  // the buyer — seller_id only changes back once the buyer relists it
+  // (see relist/route.ts), so without this check the original seller could
+  // delete the row (and the buyer's ownership record with it) any time
+  // after the sale closed.
+  if (card!.status === "sold") {
+    return NextResponse.json(
+      { error: "Esta carta ya fue vendida y le pertenece al comprador — no se puede eliminar." },
       { status: 409 }
     );
   }

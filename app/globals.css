@@ -159,6 +159,89 @@ body {
   }
 }
 
+/* Mission-stat placeholders: no real aggregate counts yet, so these numbers
+   stay permanently scrambled (JS, see GlitchStat). No color tint at all —
+   just the scrambling digits plus a same-color offset "ghost" copy that
+   flashes briefly for a jitter/double-vision feel, so nothing here ever
+   reads as pink/cyan or as a settled, trustworthy figure. */
+.stat-glitch {
+  position: relative;
+  display: inline-block;
+}
+
+.stat-glitch::before,
+.stat-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  color: currentColor;
+}
+
+.stat-glitch::before {
+  clip-path: inset(0 0 55% 0);
+}
+
+.stat-glitch::after {
+  clip-path: inset(45% 0 0 0);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stat-glitch::before {
+    animation: stat-glitch-before 1.1s steps(2, jump-none) infinite;
+  }
+  .stat-glitch::after {
+    animation: stat-glitch-after 1.3s steps(2, jump-none) infinite;
+  }
+}
+
+/* Idle (opacity 0) most of the cycle; flashes for ~8% around 88-96%. */
+@keyframes stat-glitch-before {
+  0%, 88%, 100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 55% 0);
+  }
+  90% {
+    opacity: 0.8;
+    transform: translate(-2px, -1px);
+    clip-path: inset(10% 0 60% 0);
+  }
+  93% {
+    opacity: 0.8;
+    transform: translate(2px, 1px);
+    clip-path: inset(40% 0 20% 0);
+  }
+  96% {
+    opacity: 0;
+    transform: translate(-1px, 0);
+    clip-path: inset(0 0 70% 0);
+  }
+}
+
+@keyframes stat-glitch-after {
+  0%, 88%, 100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(45% 0 0 0);
+  }
+  90% {
+    opacity: 0.8;
+    transform: translate(2px, 1px);
+    clip-path: inset(50% 0 5% 0);
+  }
+  93% {
+    opacity: 0.8;
+    transform: translate(-2px, -1px);
+    clip-path: inset(20% 0 35% 0);
+  }
+  96% {
+    opacity: 0;
+    transform: translate(1px, 0);
+    clip-path: inset(60% 0 0 0);
+  }
+}
+
 @keyframes toastSlideIn {
   from {
     opacity: 0;

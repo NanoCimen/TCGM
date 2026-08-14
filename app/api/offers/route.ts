@@ -52,6 +52,19 @@ export async function POST(req: Request) {
   }
 
   const isBuyNow = Boolean(is_buy_now);
+
+  // Buy Now always charges the card's actual listed price — never the
+  // client-supplied offer_price. Trusting the client here would let anyone
+  // POST an arbitrary offer_price with is_buy_now:true and buy any card for
+  // a penny, since this branch auto-accepts and puts the card on hold.
+  if (isBuyNow && (card.price_usd == null || card.price_usd <= 0)) {
+    return NextResponse.json(
+      { error: "Esta carta no tiene un precio de venta válido" },
+      { status: 400 }
+    );
+  }
+  const finalPrice = isBuyNow ? card.price_usd! : Number(offer_price);
+
   const now = new Date().toISOString();
 
   const { data: offer, error: offerError } = await supabase
@@ -60,7 +73,7 @@ export async function POST(req: Request) {
       card_id,
       buyer_id: user.id,
       seller_id: card.seller_id,
-      offer_price: Number(offer_price),
+      offer_price: finalPrice,
       message: message?.trim() || null,
       is_buy_now: isBuyNow,
       status: isBuyNow ? "accepted" : "pending",

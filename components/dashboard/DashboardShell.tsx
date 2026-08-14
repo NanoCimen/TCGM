@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Activity, Heart, Layers, LogOut, User as UserIcon } from "lucide-react";
 import Navbar from "@/components/marketplace/Navbar";
 import AmbientGlow from "@/components/marketplace/AmbientGlow";
@@ -60,6 +61,7 @@ export default function DashboardShell({
   initials,
   email = null,
   accentColor = null,
+  loggedIn = true,
   children,
 }: {
   active: DashboardNavKey | null;
@@ -67,8 +69,12 @@ export default function DashboardShell({
   initials: string;
   email?: string | null;
   accentColor?: string | null;
+  // Every route rendering this shell requires auth except /dashboard,
+  // which stays viewable (empty) for guests — see app/dashboard/page.tsx.
+  loggedIn?: boolean;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [isDark, setIsDark] = useState(true);
@@ -104,10 +110,10 @@ export default function DashboardShell({
         toggleDark={() => setIsDark(!isDark)}
         search={search}
         onSearchChange={setSearch}
-        loggedIn
+        loggedIn={loggedIn}
         email={email}
         avatarUrl={avatarUrl}
-        onAuthSelect={() => {}}
+        onAuthSelect={(mode) => router.push(`/?auth=${mode}`)}
         showThemeToggle={false}
         showSearch={false}
         showSell={false}

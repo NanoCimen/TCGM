@@ -74,6 +74,10 @@ export default function AuthModal({
   initialForgotPassword = false,
   initialError = "",
 }: AuthModalProps) {
+  // Starts from the `mode` prop but can flip independently once open, via
+  // the "No estás registrado?" / "Ya tengo cuenta" links below — the parent
+  // only decides which mode the modal opens in, not which one it's showing.
+  const [activeMode, setActiveMode] = useState<AuthMode>(mode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -117,6 +121,7 @@ export default function AuthModal({
       resetState();
       return;
     }
+    setActiveMode(mode);
     setRegisterStep("email");
     setError(initialError);
     setOtp("");
@@ -391,7 +396,7 @@ export default function AuthModal({
 
   function handleBack() {
     setError("");
-    if (mode === "login" && forgotPassword) {
+    if (activeMode === "login" && forgotPassword) {
       setForgotPassword(false);
       setForgotSent(false);
       return;
@@ -407,17 +412,17 @@ export default function AuthModal({
   }
 
   const showBack =
-    (mode === "login" && forgotPassword) ||
-    (mode === "register" &&
+    (activeMode === "login" && forgotPassword) ||
+    (activeMode === "register" &&
       ["otp", "terms", "password"].includes(registerStep));
 
   const showLogo =
-    (mode === "login" && !forgotPassword && !loginSuccess) ||
+    (activeMode === "login" && !forgotPassword && !loginSuccess) ||
     registerStep === "email" ||
     registerStep === "success";
 
   const title =
-    mode === "login"
+    activeMode === "login"
       ? forgotPassword
         ? "Recuperar contraseña"
         : loginSuccess
@@ -510,7 +515,7 @@ export default function AuthModal({
               </div>
             )}
 
-            {registerStep === "otp" && mode === "register" && (
+            {registerStep === "otp" && activeMode === "register" && (
               <div className="flex justify-center mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center">
                   <Mail className="w-7 h-7 text-brand" strokeWidth={1.5} />
@@ -518,7 +523,7 @@ export default function AuthModal({
               </div>
             )}
 
-            {registerStep === "terms" && mode === "register" && (
+            {registerStep === "terms" && activeMode === "register" && (
               <div className="flex justify-center mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center">
                   <Check className="w-7 h-7 text-brand" strokeWidth={2.5} />
@@ -526,7 +531,7 @@ export default function AuthModal({
               </div>
             )}
 
-            {registerStep === "success" && mode === "register" && (
+            {registerStep === "success" && activeMode === "register" && (
               <div className="flex justify-center mb-6">
                 <div className="w-16 h-16 rounded-full bg-brand flex items-center justify-center">
                   <Check className="w-8 h-8 text-black" strokeWidth={2.5} />
@@ -534,7 +539,7 @@ export default function AuthModal({
               </div>
             )}
 
-            {mode === "login" && loginSuccess && (
+            {activeMode === "login" && loginSuccess && (
               <div className="flex justify-center mb-6">
                 <div className="w-16 h-16 rounded-full bg-brand flex items-center justify-center">
                   <Check className="w-8 h-8 text-black" strokeWidth={2.5} />
@@ -543,7 +548,7 @@ export default function AuthModal({
             )}
 
             {/* Login: forgot password */}
-            {mode === "login" && forgotPassword && (
+            {activeMode === "login" && forgotPassword && (
               <>
                 {forgotSent ? (
                   <div className="text-center space-y-6">
@@ -603,7 +608,7 @@ export default function AuthModal({
             )}
 
             {/* Login: success */}
-            {mode === "login" && loginSuccess && (
+            {activeMode === "login" && loginSuccess && (
               <div className="text-center space-y-6">
                 <p className={`text-sm ${muted}`}>
                   Has iniciado sesión correctamente.
@@ -619,7 +624,7 @@ export default function AuthModal({
             )}
 
             {/* Login */}
-            {mode === "login" && !forgotPassword && !loginSuccess && (
+            {activeMode === "login" && !forgotPassword && !loginSuccess && (
               <>
                 <form onSubmit={handleLoginSubmit} className="space-y-3 mb-4">
                   <div
@@ -728,11 +733,25 @@ export default function AuthModal({
                     </span>
                   </button>
                 </div>
+
+                <p className={`text-center text-sm mt-6 ${muted}`}>
+                  ¿No estás registrado?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError("");
+                      setActiveMode("register");
+                    }}
+                    className={`font-semibold underline underline-offset-2 hover:text-brand transition-colors ${text}`}
+                  >
+                    Regístrate
+                  </button>
+                </p>
               </>
             )}
 
             {/* Register: email */}
-            {mode === "register" && registerStep === "email" && (
+            {activeMode === "register" && registerStep === "email" && (
               <form onSubmit={handleRegisterEmailSubmit} className="mb-4">
                 <div
                   className={`relative flex items-center border rounded-xl overflow-hidden mb-4 ${border}`}
@@ -769,7 +788,7 @@ export default function AuthModal({
             )}
 
             {/* Register: OTP */}
-            {mode === "register" && registerStep === "otp" && (
+            {activeMode === "register" && registerStep === "otp" && (
               <div className="space-y-6">
                 <p className={`text-sm text-center leading-relaxed ${muted}`}>
                   Revisa{" "}
@@ -820,7 +839,7 @@ export default function AuthModal({
             )}
 
             {/* Register: terms */}
-            {mode === "register" && registerStep === "terms" && (
+            {activeMode === "register" && registerStep === "terms" && (
               <div className="space-y-4">
                 <div className="space-y-3">
                   <a
@@ -885,7 +904,7 @@ export default function AuthModal({
             )}
 
             {/* Register: password */}
-            {mode === "register" && registerStep === "password" && (
+            {activeMode === "register" && registerStep === "password" && (
               <form onSubmit={handlePasswordSubmit} className="space-y-3">
                 <div
                   className={`relative flex items-center border rounded-xl overflow-hidden ${border}`}
@@ -955,7 +974,7 @@ export default function AuthModal({
             )}
 
             {/* Register: profile (mandatory — needed to buy/sell) */}
-            {mode === "register" && registerStep === "profile" && (
+            {activeMode === "register" && registerStep === "profile" && (
               <form onSubmit={handleProfileSubmit} className="space-y-3">
                 <p className={`text-sm text-center mb-1 ${muted}`}>
                   Tu nombre y WhatsApp son necesarios para comprar y vender —
@@ -1016,7 +1035,7 @@ export default function AuthModal({
             )}
 
             {/* Register: success */}
-            {mode === "register" && registerStep === "success" && (
+            {activeMode === "register" && registerStep === "success" && (
               <div className="text-center space-y-6">
                 <p className={`text-sm ${muted}`}>
                   Has creado tu cuenta correctamente. Ya iniciaste sesión.
@@ -1031,10 +1050,10 @@ export default function AuthModal({
               </div>
             )}
 
-            {((mode === "login" && !forgotPassword && !loginSuccess) ||
-              (mode === "register" && registerStep === "email")) && (
+            {((activeMode === "login" && !forgotPassword && !loginSuccess) ||
+              (activeMode === "register" && registerStep === "email")) && (
               <p className={`text-center text-[11px] mt-8 leading-relaxed ${muted}`}>
-                Al {mode === "login" ? "iniciar sesión" : "registrarte"} acepto
+                Al {activeMode === "login" ? "iniciar sesión" : "registrarte"} acepto
                 los{" "}
                 <a
                   href="#"

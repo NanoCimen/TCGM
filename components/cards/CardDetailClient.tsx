@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCheck, ChevronDown, Heart, Loader2, MessageCircle, Star, X } from "lucide-react";
+import { ArrowLeft, CheckCheck, ChevronDown, ExternalLink, Heart, Loader2, MessageCircle, Star, X } from "lucide-react";
 import { openBuyNowWhatsApp } from "@/lib/marketplace/whatsapp";
 import { createClient } from "@/lib/supabase/client";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -178,30 +178,45 @@ function StatChip({
   value,
   sub,
   index,
+  href,
 }: {
   label: string;
   value: string;
   sub?: string;
   index: number;
+  href?: string;
 }) {
+  const Wrapper = href ? motion.a : motion.div;
   return (
-    <motion.div
+    <Wrapper
+      {...(href
+        ? { href, target: "_blank", rel: "noopener noreferrer" }
+        : {})}
       custom={index}
       variants={fadeUp}
       initial="hidden"
       animate="visible"
       whileHover={{ y: -2, scale: 1.02 }}
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
-      className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-3.5 cursor-default"
+      className={`bg-white/[0.03] border border-white/[0.07] rounded-xl p-3.5 block ${
+        href ? "hover:border-brand/40 hover:bg-brand/[0.04]" : "cursor-default"
+      }`}
     >
       <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">
         {label}
       </p>
-      <p className="text-sm font-black text-white leading-none truncate">{value}</p>
+      <p
+        className={`text-sm font-black leading-none truncate flex items-center gap-1 ${
+          href ? "text-brand" : "text-white"
+        }`}
+      >
+        {value}
+        {href && <ExternalLink className="w-3 h-3 flex-shrink-0" />}
+      </p>
       {sub && (
         <p className="text-[10px] text-gray-700 mt-1 truncate">{sub}</p>
       )}
-    </motion.div>
+    </Wrapper>
   );
 }
 
@@ -556,6 +571,9 @@ export default function CardDetailClient({
       : null;
   const statusLabel = STATUS_LABEL[card.status] ?? card.status;
   const isHolo = HOLO_VARIANTS.has(variant);
+  const tcgPlayerUrl = `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(
+    [card.card_name, card.set_name].filter(Boolean).join(" ")
+  )}`;
 
   const hasBothPhotos = !!card.official_image_url && !!card.image_url;
   const activeImageSrc =
@@ -822,8 +840,13 @@ export default function CardDetailClient({
             />
             <StatChip
               label="Ref. mercado"
-              value={card.tcg_market_price != null ? formatPrice(card.tcg_market_price) : "—"}
-              sub={card.tcg_market_price != null ? `$${Number(card.tcg_market_price).toFixed(2)} USD` : undefined}
+              value="Ver en TCGPlayer"
+              sub={
+                card.tcg_market_price != null
+                  ? `$${Number(card.tcg_market_price).toFixed(2)} USD`
+                  : undefined
+              }
+              href={tcgPlayerUrl}
               index={6}
             />
           </div>

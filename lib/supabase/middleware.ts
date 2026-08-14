@@ -31,8 +31,9 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // /dashboard is deliberately excluded — signed-out visitors can view the
+  // shell empty (see app/dashboard/page.tsx), rather than getting bounced.
   const requiresAuth =
-    pathname.startsWith("/dashboard") ||
     pathname.startsWith("/perfil") ||
     pathname.startsWith("/actividad") ||
     pathname.startsWith("/wishlist") ||
@@ -41,6 +42,11 @@ export async function updateSession(request: NextRequest) {
   if (!user && requiresAuth) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
+    // Land on the homepage with the register modal already open (see the
+    // `?auth=register` handling in MarketplacePage) instead of dropping
+    // guests on a bare landing page with no indication of why they got sent
+    // back.
+    url.search = "?auth=register";
     return NextResponse.redirect(url);
   }
 

@@ -108,7 +108,10 @@ export async function getMarketplaceStats(
   // moment a card gets resold. Offers are append-only, so this total is
   // cumulative across every user, forever.
   const [{ data: acceptedOffers }, { data: availableCards }] = await Promise.all([
-    supabase.from("offers").select("offer_price").eq("status", "accepted"),
+    supabase
+      .from("offers")
+      .select("offer_price, cards:card_id ( status )")
+      .eq("status", "accepted"),
     supabase
       .from("cards")
       .select("price_usd")
@@ -116,10 +119,15 @@ export async function getMarketplaceStats(
       .not("price_usd", "is", null),
   ]);
 
-  const soldVolume = (acceptedOffers ?? []).reduce(
-    (sum, o) => sum + (o.offer_price ?? 0),
-    0
-  );
+  // Buy Now / accepting an offer flips offers.status to 'accepted'
+  // immediately, before the seller confirms delivery — the card sits in
+  // 'hold' until then. Exclude those still-in-progress transactions so the
+  // total only reflects sales that actually completed.
+  const soldVolume = (acceptedOffers ?? []).reduce((sum, o) => {
+    const card = Array.isArray(o.cards) ? o.cards[0] : o.cards;
+    if (card?.status === "hold") return sum;
+    return sum + (o.offer_price ?? 0);
+  }, 0);
   const listingValue = (availableCards ?? []).reduce(
     (sum, c) => sum + (c.price_usd ?? 0),
     0

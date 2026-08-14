@@ -38,7 +38,7 @@ type OfferRow = {
   offer_price: number;
   responded_at: string | null;
   created_at: string;
-  cards: { card_name: string; image_url: string | null; official_image_url: string | null } | { card_name: string; image_url: string | null; official_image_url: string | null }[] | null;
+  cards: { card_name: string; image_url: string | null; official_image_url: string | null; status: string } | { card_name: string; image_url: string | null; official_image_url: string | null; status: string }[] | null;
   buyer: { display_name: string | null } | { display_name: string | null }[] | null;
   seller: { display_name: string | null } | { display_name: string | null }[] | null;
 };
@@ -55,6 +55,7 @@ type SoldOfferCard = {
   is_graded: boolean | null;
   grade: string | null;
   grade_company: string | null;
+  status: string;
 };
 
 type SoldOfferRow = {
@@ -101,7 +102,7 @@ export default async function PokemonCollection() {
         .from("offers")
         .select(
           `id, offer_price, responded_at, created_at,
-           cards:card_id ( id, card_name, set_name, card_number, image_url, official_image_url, variant, language, is_graded, grade, grade_company ),
+           cards:card_id ( id, card_name, set_name, card_number, image_url, official_image_url, variant, language, is_graded, grade, grade_company, status ),
            seller:users!seller_id ( display_name )`
         )
         .eq("status", "accepted")
@@ -111,7 +112,7 @@ export default async function PokemonCollection() {
         .from("offers")
         .select(
           `id, offer_price, responded_at, created_at,
-           cards:card_id ( card_name, image_url, official_image_url ),
+           cards:card_id ( card_name, image_url, official_image_url, status ),
            buyer:users!buyer_id ( display_name ),
            seller:users!seller_id ( display_name )`
         )
@@ -120,12 +121,25 @@ export default async function PokemonCollection() {
         .limit(30),
     ]);
 
-  const soldVolume = (soldOffers ?? []).reduce(
+  // Buy Now / accepting an offer flips offers.status to 'accepted'
+  // immediately, before the seller confirms delivery — the card sits in
+  // 'hold' until then. Exclude those still-in-progress transactions so
+  // volume/history/activity only reflect sales that actually completed
+  // (cards.status moves off 'hold' once delivery is confirmed, or the card
+  // is resold — see the PATCH/relist routes).
+  const completedSoldOffers = ((soldOffers ?? []) as SoldOfferRow[]).filter(
+    (row) => firstOf(row.cards)?.status !== "hold"
+  );
+  const completedSales = ((sales ?? []) as OfferRow[]).filter(
+    (row) => firstOf(row.cards)?.status !== "hold"
+  );
+
+  const soldVolume = completedSoldOffers.reduce(
     (sum, o) => sum + (o.offer_price ?? 0),
     0
   );
 
-  const soldHistory: CollectionCard[] = ((soldOffers ?? []) as SoldOfferRow[])
+  const soldHistory: CollectionCard[] = completedSoldOffers
     .map((row): CollectionCard | null => {
       const card = firstOf(row.cards);
       const seller = firstOf(row.seller);
@@ -191,7 +205,7 @@ export default async function PokemonCollection() {
     soldVolume,
   };
 
-  const salesActivity: SaleActivity[] = ((sales ?? []) as OfferRow[])
+  const salesActivity: SaleActivity[] = completedSales
     .map((row) => {
       const card = firstOf(row.cards);
       const buyer = firstOf(row.buyer);

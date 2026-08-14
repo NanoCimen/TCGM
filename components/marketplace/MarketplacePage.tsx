@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Clock, X, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
@@ -324,13 +324,57 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
   );
 }
 
-// Placeholder figures until real aggregate counts are wired up.
+// No real aggregate counts wired up yet — these templates only fix the
+// shape/width of each stat (digit count, "RD$"/"K" formatting). The digits
+// themselves are never shown: GlitchStat keeps them permanently scrambled
+// so nothing here reads as a real number.
 const MISSION_STATS = [
-  { label: "Cartas Listadas", value: "1,240" },
-  { label: "Volumen Total", value: "RD$482K" },
-  { label: "Vendedores Activos", value: "312" },
-  { label: "Usuarios Totales", value: "5,890" },
+  { label: "Cartas Listadas", template: "1,240" },
+  { label: "Volumen Total", template: "RD$482K" },
+  { label: "Vendedores Activos", template: "312" },
+  { label: "Usuarios Totales", template: "5,890" },
 ];
+
+function scrambleDigits(digits: string): string {
+  return digits.replace(/[0-9]/g, () => String(Math.floor(Math.random() * 10)));
+}
+
+function GlitchDigits({ digits }: { digits: string }) {
+  const [text, setText] = useState(() => scrambleDigits(digits));
+
+  useEffect(() => {
+    const id = window.setInterval(() => setText(scrambleDigits(digits)), 90);
+    return () => window.clearInterval(id);
+  }, [digits]);
+
+  return (
+    <span className="stat-glitch tabular-nums" data-text={text} aria-hidden="true">
+      {text}
+    </span>
+  );
+}
+
+// Splits "RD$482K" into ["RD$", "482", "K"] — only the digit runs get the
+// glitch treatment; the surrounding letters/symbols stay plain (inheriting
+// the stat's normal text color) instead of being tinted by the RGB split.
+function GlitchStat({ template }: { template: string }) {
+  const parts = template.split(/(\d+)/).filter(Boolean);
+
+  return (
+    <span className="relative inline-flex">
+      {parts.map((part, i) =>
+        /^\d+$/.test(part) ? (
+          <GlitchDigits key={i} digits={part} />
+        ) : (
+          <span key={i} aria-hidden="true">
+            {part}
+          </span>
+        )
+      )}
+      <span className="sr-only">Datos disponibles próximamente</span>
+    </span>
+  );
+}
 
 function MissionSection() {
   return (
@@ -381,7 +425,7 @@ function MissionSection() {
             className="rounded-2xl border border-white/15 dark:border-white/10 bg-white/30 dark:bg-white/[0.03] backdrop-blur-xl px-6 py-8"
           >
             <p className="font-mono text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
-              {stat.value}
+              <GlitchStat template={stat.template} />
             </p>
             <p className="mt-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               {stat.label}
@@ -885,6 +929,19 @@ function Footer() {
   );
 }
 
+// useSearchParams needs a Suspense boundary — isolated here so it only
+// gates this invisible watcher, not the whole homepage render.
+function AuthQueryWatcher({ onAuth }: { onAuth: (mode: AuthMode) => void }) {
+  const searchParams = useSearchParams();
+  const authParam = searchParams.get("auth");
+
+  useEffect(() => {
+    if (authParam === "register" || authParam === "login") onAuth(authParam);
+  }, [authParam, onAuth]);
+
+  return null;
+}
+
 export default function MarketplacePage({
   stats,
   trendingCards,
@@ -988,6 +1045,24 @@ export default function MarketplacePage({
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
+  // Guests get bounced here by middleware after trying an auth-gated route
+  // (e.g. /sell, /perfil), or land here from the guest /dashboard shell's
+  // login/register buttons — open the matching auth mode instead of leaving
+  // them stranded on a bare homepage. Read via useSearchParams (not
+  // window.location on mount) because these are same-route client-side nav
+  // (e.g. clicking "Subir carta") — the component never remounts, so a
+  // mount-only effect would miss the query param entirely.
+  const handleAuthParam = useCallback(
+    (mode: AuthMode) => {
+      setAuthMode(mode);
+      setAuthInitialForgotPassword(false);
+      setAuthInitialError("");
+      setAuthModalOpen(true);
+      router.replace("/", { scroll: false });
+    },
+    [router]
+  );
+
   const openAuth = useCallback((mode: AuthMode) => {
     setAuthMode(mode);
     setAuthInitialForgotPassword(false);
@@ -1043,6 +1118,9 @@ export default function MarketplacePage({
         <ManageSection />
       </main>
       <Footer />
+      <Suspense fallback={null}>
+        <AuthQueryWatcher onAuth={handleAuthParam} />
+      </Suspense>
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}

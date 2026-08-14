@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import MyCardsDashboard, {
   type DashboardCard,
@@ -9,13 +9,44 @@ import MyCardsDashboard, {
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+// MyCardsDashboard reads the `tab` query param via useSearchParams, which
+// the App Router requires a Suspense boundary for (same requirement
+// MarketplacePage documents for its own useSearchParams usage).
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardPageContent />
+    </Suspense>
+  );
+}
+
+async function DashboardPageContent() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/");
+  // Guests can browse the dashboard shell itself — it's just empty since
+  // there's no user to attach cards/offers/messages to. Actions that need
+  // an account (publish, offer, message, etc.) still gate on auth where
+  // they're triggered.
+  if (!user) {
+    return (
+      <MyCardsDashboard
+        displayName="Invitado"
+        email=""
+        avatarUrl={null}
+        themeColor={null}
+        cards={[]}
+        receivedOffers={[]}
+        madeOffers={[]}
+        offerCountByCard={{}}
+        userId=""
+        allMessages={[]}
+        closedConversations={[]}
+      />
+    );
+  }
 
   const offerSelect = `
     id,

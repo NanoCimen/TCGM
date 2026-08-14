@@ -109,16 +109,6 @@ export default async function CardDetailPage({
 
   if (!card) notFound();
 
-  const { data: lastSaleRow } = await supabase
-    .from("cards")
-    .select("price_usd")
-    .eq("card_name", card.card_name)
-    .eq("status", "sold")
-    .neq("id", params.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle<{ price_usd: number | null }>();
-
   // Check if the current user already has a pending offer on this card
   let existingOffer: { id: string; offer_price: number } | null = null;
   if (user && user.id !== card.seller_id) {
@@ -208,6 +198,13 @@ export default async function CardDetailPage({
 
   const firstOf = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
 
+  // "Last sale" for this exact card — a resold card keeps the same row
+  // (status just flips back to available/hold, see get_offers_count.sql's
+  // sibling comment), so its accepted-offer history here already covers
+  // every time it's changed hands. activityRows is ordered most-recent
+  // first, so the first entry is the last sale.
+  const lastSaleUsd = (activityRows as ActivityRow[] | null)?.[0]?.offer_price ?? null;
+
   const cardActivity: CardActivityEntry[] = ((activityRows ?? []) as ActivityRow[]).map(
     (row, index) => {
       // Only the most recent accepted offer's outcome is still open — every
@@ -235,7 +232,7 @@ export default async function CardDetailPage({
       sellerPhone={sellerPhone}
       currentUserId={user?.id ?? null}
       existingOffer={existingOffer}
-      lastSaleUsd={lastSaleRow?.price_usd ?? null}
+      lastSaleUsd={lastSaleUsd}
       cardOffers={cardOffers}
       cardActivity={cardActivity}
     />

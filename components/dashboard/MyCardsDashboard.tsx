@@ -736,7 +736,7 @@ export default function MyCardsDashboard({
   }
 
   return (
-    <DashboardShell active="mis-cartas" avatarUrl={avatarUrl} initials={initials} email={email} accentColor={themeColor}>
+    <DashboardShell active="mis-cartas" avatarUrl={avatarUrl} initials={initials} email={email} accentColor={themeColor} loggedIn={!!userId}>
       <DashboardPageContainer>
         <DashboardPageHeader
           avatarUrl={avatarUrl}
