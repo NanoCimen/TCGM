@@ -11,8 +11,6 @@ const FOOTER_ITEMS: { label: string; href: string | null }[] = [
 export default function Footer({ compact = false }: { compact?: boolean }) {
   return (
     <footer className={`relative mt-auto transition-colors ${compact ? "pt-12 pb-8" : "py-14"}`}>
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/20 to-transparent" />
-      <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.015] backdrop-blur-xl -z-10" />
       <div className={`max-w-[1400px] mx-auto px-6 lg:px-10 flex flex-col items-center text-center ${compact ? "gap-0" : "gap-6"}`}>
         {!compact && (
           <h2
