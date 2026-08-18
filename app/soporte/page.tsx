@@ -237,7 +237,7 @@ export default function SoportePage() {
 
         {/* FAQ list */}
         <div className="space-y-2.5 mb-20">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout">
             {filtered.map((f, i) => (
               <motion.div
                 key={f.q}

@@ -33,7 +33,7 @@ export function DashboardPageHeader({
           <h1 className="text-2xl font-black tracking-tight text-white truncate">
             {title}
           </h1>
-          {subtitle && <p className="text-sm text-gray-500 truncate">{subtitle}</p>}
+          {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
         </div>
       </div>
 

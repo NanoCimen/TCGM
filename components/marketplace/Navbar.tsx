@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -110,11 +110,7 @@ export default function Navbar({
             />
           </Link>
 
-          <div
-            className={`hidden md:flex items-center space-x-8
-              
-            }`}
-          >
+          <div className="hidden md:flex items-center space-x-8">
             <Link href="/" className={navLinkClass(pathname === "/")}>
               Inicio
             </Link>
@@ -197,36 +193,46 @@ export default function Navbar({
         </div>
       </div>
 
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-white/20 dark:border-white/[0.06] bg-white dark:bg-[#0a0a0a] px-6 py-4 flex flex-col">
-          <Link
-            href="/"
-            className={`py-3 font-semibold text-sm ${pathname === "/" ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="md:hidden overflow-hidden border-t border-white/20 dark:border-white/[0.06] bg-white dark:bg-[#0a0a0a]"
           >
-            Inicio
-          </Link>
-          <Link
-            href="/dashboard"
-            className={`py-3 font-semibold text-sm ${inColeccion ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
-          >
-            Mi colección
-          </Link>
-          <Link
-            href="/collection/pokemon"
-            className={`py-3 font-semibold text-sm ${pathname.startsWith("/collection/pokemon") ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
-          >
-            Mercado
-          </Link>
-          <a
-            href="https://www.instagram.com/tcg.rd/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="py-3 font-semibold text-sm text-gray-700 dark:text-gray-300"
-          >
-            Nosotros
-          </a>
-        </div>
-      )}
+            <div className="px-6 py-4 flex flex-col">
+              <Link
+                href="/"
+                className={`py-3 font-semibold text-sm ${pathname === "/" ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
+              >
+                Inicio
+              </Link>
+              <Link
+                href="/dashboard"
+                className={`py-3 font-semibold text-sm ${inColeccion ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
+              >
+                Mi colección
+              </Link>
+              <Link
+                href="/collection/pokemon"
+                className={`py-3 font-semibold text-sm ${pathname.startsWith("/collection/pokemon") ? "text-brand" : "text-gray-700 dark:text-gray-300"}`}
+              >
+                Mercado
+              </Link>
+              <a
+                href="https://www.instagram.com/tcg.rd/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-3 font-semibold text-sm text-gray-700 dark:text-gray-300"
+              >
+                Nosotros
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 }

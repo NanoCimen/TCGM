@@ -24,7 +24,7 @@ function LoginForm() {
 
     const trimmed = email.trim();
     if (!trimmed || !trimmed.includes("@")) {
-      setError("Ingresa un email valido");
+      setError("Ingresa un email válido");
       return;
     }
 
@@ -45,7 +45,7 @@ function LoginForm() {
   }
 
   return (
-    <AuthLayout title="Iniciar sesion">
+    <AuthLayout title="Iniciar sesión">
       <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
         <div className={`group relative ${error ? "animate-shake" : ""}`}>
           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 group-focus-within:text-brand transition-colors duration-300 pointer-events-none" />
@@ -80,7 +80,7 @@ function LoginForm() {
           {loading ? (
             <Loader2 className="animate-spin w-5 h-5" />
           ) : (
-            <>Enviar link <ArrowRight size={18} strokeWidth={2.5} /></>
+            <>Enviar código <ArrowRight size={18} strokeWidth={2.5} /></>
           )}
         </button>
       </form>

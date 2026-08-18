@@ -892,8 +892,8 @@ export default function MyCardsDashboard({
                         {card.set_name ?? "—"}
                       </p>
 
-                      <div className="flex items-center justify-between gap-1 mb-2">
-                        <p className="font-mono text-sm font-bold text-white truncate">
+                      <div className="flex items-center justify-between gap-1 mb-2 flex-wrap">
+                        <p className="font-mono text-sm font-bold text-white flex-shrink-0">
                           {card.price_usd != null ? formatDOP(card.price_usd) : "—"}
                         </p>
                         {isPurchased(card) ? (
@@ -1032,8 +1032,8 @@ export default function MyCardsDashboard({
                         {card.set_name ?? "—"}
                       </p>
 
-                      <div className="flex items-center justify-between gap-1 mb-2">
-                        <p className="font-mono text-sm font-bold text-white truncate">
+                      <div className="flex items-center justify-between gap-1 mb-2 flex-wrap">
+                        <p className="font-mono text-sm font-bold text-white flex-shrink-0">
                           {card.price_usd != null ? formatDOP(card.price_usd) : "—"}
                         </p>
                         <span className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
@@ -1105,22 +1105,22 @@ export default function MyCardsDashboard({
                       </p>
 
                       <div className="space-y-1.5 mb-2">
-                        <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center justify-between gap-1 flex-wrap">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
                             Vendida
                           </span>
-                          <span className="font-mono text-sm font-bold text-white truncate">
+                          <span className="font-mono text-sm font-bold text-white flex-shrink-0">
                             {formatDOP(soldUsd)}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center justify-between gap-1 flex-wrap">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
                             Precio actual
                           </span>
                           {floorLoading ? (
                             <Loader2 className="w-3 h-3 animate-spin text-gray-600" />
                           ) : floorUsd != null ? (
-                            <span className="font-mono text-sm font-bold text-gray-300 truncate">
+                            <span className="font-mono text-sm font-bold text-gray-300 flex-shrink-0">
                               {formatDOP(floorUsd)}
                             </span>
                           ) : (

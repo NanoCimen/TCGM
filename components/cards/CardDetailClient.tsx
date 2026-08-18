@@ -206,11 +206,11 @@ function StatChip({
         {label}
       </p>
       <p
-        className={`text-sm font-black leading-none truncate flex items-center gap-1 ${
+        className={`text-sm font-black leading-none flex items-center gap-1 min-w-0 ${
           href ? "text-brand" : "text-white"
         }`}
       >
-        {value}
+        <span className="truncate">{value}</span>
         {href && <ExternalLink className="w-3 h-3 flex-shrink-0" />}
       </p>
       {sub && (
