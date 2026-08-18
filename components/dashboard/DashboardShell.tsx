@@ -154,7 +154,7 @@ export default function DashboardShell({
           </button>
         </aside>
 
-        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60">
+        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60 md:min-h-[calc(100vh-5rem)]">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
