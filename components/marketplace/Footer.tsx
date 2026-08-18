@@ -8,18 +8,20 @@ const FOOTER_ITEMS: { label: string; href: string | null }[] = [
   { label: "Privacidad", href: "/privacidad" },
 ];
 
-export default function Footer() {
+export default function Footer({ compact = false }: { compact?: boolean }) {
   return (
-    <footer className="relative mt-auto py-14 transition-colors">
+    <footer className={`relative mt-auto transition-colors ${compact ? "py-6" : "py-14"}`}>
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/20 to-transparent" />
       <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.015] backdrop-blur-xl -z-10" />
-      <div className="max-w-[1400px] mx-auto px-6 lg:px-10 flex flex-col items-center text-center gap-6">
-        <h2
-          data-text="TCG RD"
-          className="footer-wordmark text-5xl md:text-6xl"
-        >
-          TCG RD
-        </h2>
+      <div className={`max-w-[1400px] mx-auto px-6 lg:px-10 flex flex-col items-center text-center ${compact ? "gap-0" : "gap-6"}`}>
+        {!compact && (
+          <h2
+            data-text="TCG RD"
+            className="footer-wordmark text-5xl md:text-6xl"
+          >
+            TCG RD
+          </h2>
+        )}
 
         <nav className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-mono text-gray-400 dark:text-gray-500">
           {FOOTER_ITEMS.map((item, index) => (

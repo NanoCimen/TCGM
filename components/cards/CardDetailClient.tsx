@@ -1455,7 +1455,7 @@ export default function CardDetailClient({
         </div>
       </div>
 
-      <Footer />
+      <Footer compact />
 
       <AuthModal
         isOpen={authModalOpen}

@@ -1089,7 +1089,7 @@ export default function PokemonCollectionPage({
         isDark={isDark}
       />
 
-      <Footer />
+      <Footer compact />
     </div>
   );
 }

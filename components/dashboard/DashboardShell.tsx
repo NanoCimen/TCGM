@@ -163,7 +163,7 @@ export default function DashboardShell({
           >
             {children}
           </motion.div>
-          <Footer />
+          <Footer compact />
         </main>
       </div>
 

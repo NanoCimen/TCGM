@@ -147,7 +147,7 @@ export default async function SearchPage({
         )}
       </div>
 
-      <Footer />
+      <Footer compact />
     </div>
   );
 }
