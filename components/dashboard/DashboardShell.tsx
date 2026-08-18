@@ -154,18 +154,23 @@ export default function DashboardShell({
           </button>
         </aside>
 
-        <main className="flex-1 flex flex-col px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60">
+        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="flex-1"
           >
             {children}
           </motion.div>
-          <Footer compact />
         </main>
       </div>
+
+      {/* Full-width, not nested in <main> — the sidebar is fixed to the
+          left edge of the viewport, so a footer indented to sit only in
+          main's content column (to the right of it) ends up looking
+          off-center/squeezed instead of centered like every other
+          footer in the app. */}
+      <Footer compact />
 
       <SignOutConfirmModal
         open={confirmOpen}
