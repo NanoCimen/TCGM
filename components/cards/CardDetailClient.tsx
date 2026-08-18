@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCheck, ChevronDown, ExternalLink, Heart, Loader2, MessageCircle, Star, X } from "lucide-react";
 import { openBuyNowWhatsApp } from "@/lib/marketplace/whatsapp";
+import Footer from "@/components/marketplace/Footer";
 import { createClient } from "@/lib/supabase/client";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
 import AuthMenu from "@/components/auth/AuthMenu";
@@ -1453,6 +1454,8 @@ export default function CardDetailClient({
           </div>
         </div>
       </div>
+
+      <Footer />
 
       <AuthModal
         isOpen={authModalOpen}

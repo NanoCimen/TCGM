@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
+import Footer from "@/components/marketplace/Footer";
 import { formatPrice } from "@/lib/marketplace/utils";
 import { LANGUAGE_FLAG, VARIANT_BADGE_STYLES } from "@/lib/cards/constants";
 
@@ -145,6 +146,8 @@ export default async function SearchPage({
           </div>
         )}
       </div>
+
+      <Footer />
     </div>
   );
 }

@@ -1,0 +1,54 @@
+import Link from "next/link";
+
+const FOOTER_ITEMS: { label: string; href: string | null }[] = [
+  { label: "© 2026", href: null },
+  { label: "Instagram", href: "https://www.instagram.com/tcg.rd/" },
+  { label: "Soporte", href: "/soporte" },
+  { label: "Términos", href: "/terminos" },
+  { label: "Privacidad", href: "/privacidad" },
+];
+
+export default function Footer() {
+  return (
+    <footer className="relative mt-auto py-14 transition-colors">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/20 to-transparent" />
+      <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.015] backdrop-blur-xl -z-10" />
+      <div className="max-w-[1400px] mx-auto px-6 lg:px-10 flex flex-col items-center text-center gap-6">
+        <h2
+          data-text="TCG RD"
+          className="footer-wordmark text-5xl md:text-6xl"
+        >
+          TCG RD
+        </h2>
+
+        <nav className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-mono text-gray-400 dark:text-gray-500">
+          {FOOTER_ITEMS.map((item, index) => (
+            <span key={item.label} className="flex items-center gap-x-2">
+              {index > 0 && (
+                <span aria-hidden className="text-gray-300 dark:text-gray-700">
+                  {"//"}
+                </span>
+              )}
+              {item.href === null ? (
+                <span>{item.label}</span>
+              ) : item.href.startsWith("/") ? (
+                <Link href={item.href} className="hover:text-brand transition-colors">
+                  {item.label}
+                </Link>
+              ) : (
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-brand transition-colors"
+                >
+                  {item.label}
+                </a>
+              )}
+            </span>
+          ))}
+        </nav>
+      </div>
+    </footer>
+  );
+}

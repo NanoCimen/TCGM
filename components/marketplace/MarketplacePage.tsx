@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Clock, X, Tag } from "lucide-react";
+import { Clock, X, Tag, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { User } from "@supabase/supabase-js";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import CardThumbnail from "./CardThumbnail";
 import Navbar from "./Navbar";
 import AmbientGlow from "./AmbientGlow";
+import Footer from "./Footer";
 import type {
   MarketplaceStats,
   TrendingCard,
@@ -110,7 +111,7 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
     >
       <div className="relative">
         <div className="absolute -inset-6 rounded-[36px] bg-brand/10 blur-3xl opacity-60 -z-10" />
-        <div className="relative w-full h-[420px] sm:h-[470px] lg:h-[520px] rounded-[28px] overflow-hidden bg-[#0a0a0a] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+        <div className="relative w-full h-auto md:h-[470px] lg:h-[520px] rounded-[28px] overflow-hidden bg-[#0a0a0a] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeCol.id}
@@ -118,17 +119,29 @@ function CollectionsSection({ stats }: { stats: MarketplaceStats }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="absolute inset-0"
+              className="relative flex flex-col md:absolute md:inset-0"
             >
               <div className="absolute inset-0 bg-[#0a0a0a]" />
+
+              {/* Mobile/tablet: the logo gets its own slot in normal flow,
+                  above the info card — the old version made it a full-bleed
+                  absolute background behind the card, where the card's blur
+                  plus the gradients below (tuned for the desktop side-by-side
+                  layout) left it almost entirely hidden. */}
               <div
-                className="absolute inset-y-0 right-0 w-full md:w-2/3 bg-contain bg-right bg-no-repeat opacity-90"
+                className="md:hidden relative h-40 sm:h-48 shrink-0 bg-contain bg-top bg-no-repeat"
                 style={{ backgroundImage: `url(${activeCol.img})` }}
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/10" />
 
-              <div className="absolute inset-0 p-4 sm:p-8 md:p-10 flex flex-col justify-end">
+              {/* Desktop: original right-2/3, full-height placement. */}
+              <div
+                className="hidden md:block absolute inset-y-0 right-0 w-2/3 bg-contain bg-right bg-no-repeat opacity-90"
+                style={{ backgroundImage: `url(${activeCol.img})` }}
+              />
+              <div className="hidden md:block absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
+              <div className="hidden md:block absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/10" />
+
+              <div className="relative p-4 sm:p-8 md:absolute md:inset-0 md:p-10 flex flex-col justify-end">
                 <div className="max-w-2xl relative z-10 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6 md:p-9 shadow-[0_8px_40px_rgba(0,0,0,0.3)]">
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-2 leading-[0.95] drop-shadow-lg">
                     {activeCol.name}
@@ -720,10 +733,10 @@ function TrendingSection({
   );
 }
 
-// Mobile: video fills the section as a background layer with a dark scrim,
-// text sits centered on top of it (`absolute inset-0` + the caller's text
-// block at z-10). Desktop (lg:) reverts to a normal side-by-side video tile
-// via the classes each caller passes in.
+// Mobile/tablet: text and video are two separate, centered blocks stacked
+// in normal flow (text, then video) — no overlap, no scrim needed. Desktop
+// (lg:) reverts to the original side-by-side grid tile via the classes
+// each caller passes in.
 function VideoBackdrop({
   src,
   scale130 = false,
@@ -735,21 +748,79 @@ function VideoBackdrop({
   desktopClassName?: string;
   desktopOrderClassName?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <div
-      className={`absolute inset-0 lg:static lg:aspect-video lg:w-full lg:overflow-hidden ${desktopClassName} ${desktopOrderClassName}`}
-    >
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className={`h-full w-full object-cover ${scale130 ? "scale-130" : ""}`}
+    <>
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        aria-label="Ampliar video"
+        className={`group relative mx-auto block w-full max-w-sm aspect-video cursor-zoom-in overflow-hidden rounded-2xl border border-white/10 lg:mx-0 lg:max-w-none lg:aspect-video lg:w-full lg:border-0 ${desktopClassName} ${desktopOrderClassName}`}
       >
-        <source src={src} type="video/mp4" />
-      </video>
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10 lg:hidden" />
-    </div>
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          disablePictureInPicture
+          disableRemotePlayback
+          className={`h-full w-full object-cover ${scale130 ? "scale-130" : ""}`}
+        >
+          <source src={src} type="video/mp4" />
+        </video>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/25 group-hover:opacity-100">
+          <span className="rounded-full bg-black/60 p-3 backdrop-blur-sm">
+            <Maximize2 className="h-5 w-5 text-white" strokeWidth={2} />
+          </span>
+        </div>
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8">
+            <motion.button
+              type="button"
+              aria-label="Cerrar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/85 backdrop-blur-sm"
+              onClick={() => setExpanded(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative z-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl"
+            >
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+                disablePictureInPicture
+                disableRemotePlayback
+                className="max-h-[80vh] w-full"
+              >
+                <source src={src} type="video/mp4" />
+              </video>
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                aria-label="Cerrar"
+                className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -761,15 +832,13 @@ function UploadSection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
+      className="mb-28 flex flex-col items-center gap-8 text-center lg:grid lg:grid-cols-2 lg:items-center lg:gap-12 lg:text-left"
     >
-      <VideoBackdrop src="/videos/0812.mp4" scale130 />
-
-      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
+      <div className="flex flex-col items-center px-6 text-center lg:order-2 lg:items-start lg:px-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Sube tus cartas para vender
         </h2>
-        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-gray-500 dark:text-gray-400 sm:text-base lg:mt-6">
           Sube fotos de tus cartas, ponle el precio que quieras y publícalas
           en el mercado en cuestión de minutos. Sin comisiones escondidas ni
           procesos complicados.
@@ -781,6 +850,8 @@ function UploadSection() {
           Subir carta
         </Link>
       </div>
+
+      <VideoBackdrop src="/videos/0812.mp4" scale130 desktopOrderClassName="lg:order-1" />
     </motion.section>
   );
 }
@@ -793,29 +864,29 @@ function BuySection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
+      className="mb-28 flex flex-col items-center gap-8 text-center lg:grid lg:grid-cols-2 lg:items-center lg:gap-12 lg:text-left"
     >
-      <VideoBackdrop
-        src="/videos/mercado.mp4"
-        desktopClassName="lg:rounded-3xl lg:border lg:border-black/10 dark:lg:border-white/[0.06]"
-        desktopOrderClassName="lg:order-1"
-      />
-
-      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:order-2 lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
+      <div className="flex flex-col items-center px-6 text-center lg:order-2 lg:items-start lg:px-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Compra las cartas que te interesan
         </h2>
-        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-gray-500 dark:text-gray-400 sm:text-base lg:mt-6">
           Encuentra la carta específica que buscas, haz una oferta o
           cómprala al instante antes que nadie más.
         </p>
         <Link
           href="/#tendencia"
-          className="inline-block mt-8 border border-white/40 text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 transition-colors lg:border-white/20 lg:text-gray-900 lg:hover:bg-white/10 dark:lg:border-white/15 dark:lg:text-white dark:lg:hover:bg-white/5"
+          className="inline-block mt-8 border border-black/15 text-gray-700 hover:bg-black/5 dark:border-white/20 dark:text-white dark:hover:bg-white/10 text-sm font-bold px-6 py-2.5 rounded-lg transition-colors"
         >
           Ver mercado
         </Link>
       </div>
+
+      <VideoBackdrop
+        src="/videos/mercado.mp4"
+        desktopClassName="lg:rounded-3xl lg:border lg:border-black/10 dark:lg:border-white/[0.06]"
+        desktopOrderClassName="lg:order-1"
+      />
     </motion.section>
   );
 }
@@ -828,25 +899,25 @@ function WishlistSection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
+      className="mb-28 flex flex-col items-center gap-8 text-center lg:grid lg:grid-cols-2 lg:items-center lg:gap-12 lg:text-left"
     >
-      <VideoBackdrop src="/videos/wishlist.mp4" scale130 />
-
-      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
+      <div className="flex flex-col items-center px-6 text-center lg:order-2 lg:items-start lg:px-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Sé el primero en enterarte
         </h2>
-        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-gray-500 dark:text-gray-400 sm:text-base lg:mt-6">
           Guarda las cartas que te interesan en tu wishlist y recibe una
           notificación al instante cuando alguien las publique en el mercado.
         </p>
         <Link
           href="/wishlist"
-          className="inline-block mt-8 border border-white/40 text-white text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-white/10 transition-colors lg:border-white/20 lg:text-gray-900 lg:hover:bg-white/10 dark:lg:border-white/15 dark:lg:text-white dark:lg:hover:bg-white/5"
+          className="inline-block mt-8 border border-black/15 text-gray-700 hover:bg-black/5 dark:border-white/20 dark:text-white dark:hover:bg-white/10 text-sm font-bold px-6 py-2.5 rounded-lg transition-colors"
         >
           Ver mi wishlist
         </Link>
       </div>
+
+      <VideoBackdrop src="/videos/wishlist.mp4" scale130 desktopOrderClassName="lg:order-1" />
     </motion.section>
   );
 }
@@ -859,19 +930,13 @@ function ManageSection() {
       viewport={{ once: true, amount: 0.3 }}
       variants={fadeInUp}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-28 relative overflow-hidden rounded-3xl lg:overflow-visible lg:rounded-none lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
+      className="mb-28 flex flex-col items-center gap-8 text-center lg:grid lg:grid-cols-2 lg:items-center lg:gap-12 lg:text-left"
     >
-      <VideoBackdrop
-        src="/videos/gestionarcartas.mp4"
-        desktopClassName="lg:rounded-2xl lg:border lg:border-black/10 dark:lg:border-white/[0.06]"
-        desktopOrderClassName="lg:order-1"
-      />
-
-      <div className="relative z-10 flex min-h-[460px] flex-col items-center justify-end px-6 py-10 text-center lg:order-2 lg:block lg:min-h-0 lg:items-start lg:justify-start lg:px-0 lg:py-0 lg:text-left">
+      <div className="flex flex-col items-center px-6 text-center lg:order-2 lg:items-start lg:px-0 lg:text-left">
         <h2 className="neon-heading uppercase text-xl sm:text-2xl lg:text-3xl">
           Gestiona tu colección y recibe ofertas
         </h2>
-        <p className="mt-4 max-w-md text-sm text-white/90 sm:text-base lg:mt-6 lg:text-gray-500 lg:dark:text-gray-400">
+        <p className="mt-4 max-w-md text-sm text-gray-500 dark:text-gray-400 sm:text-base lg:mt-6">
           Mira todas tus cartas publicadas, su valor estimado, y recibe o
           acepta ofertas directamente desde tu dashboard.
         </p>
@@ -882,59 +947,13 @@ function ManageSection() {
           Ir a mis cartas
         </Link>
       </div>
+
+      <VideoBackdrop
+        src="/videos/gestionarcartas.mp4"
+        desktopClassName="lg:rounded-2xl lg:border lg:border-black/10 dark:lg:border-white/[0.06]"
+        desktopOrderClassName="lg:order-1"
+      />
     </motion.section>
-  );
-}
-
-function Footer() {
-  const items = [
-    { label: "© 2026", href: null },
-    { label: "Instagram", href: "https://www.instagram.com/tcg.rd/" },
-    { label: "Soporte", href: "/soporte" },
-    { label: "Términos", href: "/terminos" },
-  ];
-
-  return (
-    <footer className="relative mt-auto py-14 transition-colors">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand/20 to-transparent" />
-      <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.015] backdrop-blur-xl -z-10" />
-      <div className="max-w-[1400px] mx-auto px-6 lg:px-10 flex flex-col items-center text-center gap-6">
-        <h2
-          data-text="TCG RD"
-          className="footer-wordmark text-5xl md:text-6xl"
-        >
-          TCG RD
-        </h2>
-
-        <nav className="flex flex-wrap items-center justify-center gap-x-2 text-xs font-mono text-gray-400 dark:text-gray-500">
-          {items.map((item, index) => (
-            <span key={item.label} className="flex items-center gap-x-2">
-              {index > 0 && (
-                <span aria-hidden className="text-gray-300 dark:text-gray-700">
-                  {"//"}
-                </span>
-              )}
-              {item.href === null ? (
-                <span>{item.label}</span>
-              ) : item.href.startsWith("/") ? (
-                <Link href={item.href} className="hover:text-brand transition-colors">
-                  {item.label}
-                </Link>
-              ) : (
-                <a
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-brand transition-colors"
-                >
-                  {item.label}
-                </a>
-              )}
-            </span>
-          ))}
-        </nav>
-      </div>
-    </footer>
   );
 }
 

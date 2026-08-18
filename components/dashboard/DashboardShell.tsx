@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Activity, Heart, Layers, LogOut, User as UserIcon } from "lucide-react";
 import Navbar from "@/components/marketplace/Navbar";
 import AmbientGlow from "@/components/marketplace/AmbientGlow";
+import Footer from "@/components/marketplace/Footer";
 import SignOutConfirmModal from "@/components/auth/SignOutConfirmModal";
 import { createClient } from "@/lib/supabase/client";
 
@@ -153,14 +154,16 @@ export default function DashboardShell({
           </button>
         </aside>
 
-        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60">
+        <main className="flex-1 flex flex-col px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="flex-1"
           >
             {children}
           </motion.div>
+          <Footer />
         </main>
       </div>
 

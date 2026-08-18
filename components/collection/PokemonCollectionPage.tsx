@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import CardThumbnail from "@/components/marketplace/CardThumbnail";
 import Navbar from "@/components/marketplace/Navbar";
 import AmbientGlow from "@/components/marketplace/AmbientGlow";
+import Footer from "@/components/marketplace/Footer";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
 import ActivityPanel from "./ActivityPanel";
 import { USD_TO_DOP } from "@/lib/marketplace/utils";
@@ -881,7 +882,7 @@ export default function PokemonCollectionPage({
         </div>
       </div>
 
-      <div className="max-w-[1800px] mx-auto px-6 lg:px-10 flex min-h-[calc(100vh-5rem)]">
+      <div className="max-w-[1800px] mx-auto px-6 lg:px-10 flex lg:min-h-[calc(100vh-5rem)]">
         {/* Sidebar (desktop) — outer column stretches full height so the
             divider border reaches the bottom; inner content sticks. */}
         <aside className="hidden lg:block w-52 flex-shrink-0 border-r border-gray-800">
@@ -1087,6 +1088,8 @@ export default function PokemonCollectionPage({
         mode={authMode}
         isDark={isDark}
       />
+
+      <Footer />
     </div>
   );
 }
