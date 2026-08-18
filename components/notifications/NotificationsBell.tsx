@@ -116,7 +116,14 @@ export default function NotificationsBell({ className }: { className?: string })
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-white/[0.08] bg-[#111] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.85)] z-50 overflow-hidden"
+            // Mobile: fixed + inset from the viewport edges, not anchored to
+            // the bell's own position — the bell can end up far from the
+            // right edge depending on which other nav icons are showing
+            // (theme toggle / +Vender / avatar), and a 320px-wide dropdown
+            // anchored via `right-0` to that small button overflows off the
+            // left edge of the screen when it does. Desktop (md:) reverts
+            // to the original small anchored dropdown.
+            className="fixed left-4 right-4 top-20 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-80 rounded-2xl border border-white/[0.08] bg-[#111] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.85)] z-50 overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
