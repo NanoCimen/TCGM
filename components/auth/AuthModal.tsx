@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   X,
@@ -74,6 +75,7 @@ export default function AuthModal({
   initialForgotPassword = false,
   initialError = "",
 }: AuthModalProps) {
+  const router = useRouter();
   // Starts from the `mode` prop but can flip independently once open, via
   // the "No estás registrado?" / "Ya tengo cuenta" links below — the parent
   // only decides which mode the modal opens in, not which one it's showing.
@@ -227,6 +229,12 @@ export default function AuthModal({
     }
 
     setLoginSuccess(true);
+    // Any route the user visited (or that a visible Link prefetched) while
+    // logged out — e.g. /sell, which redirects guests to /?auth=register —
+    // is sitting in the client router cache with that pre-login response.
+    // Without this, clicking back into one of those routes after signing
+    // in replays the stale redirect instead of hitting the server fresh.
+    router.refresh();
   }
 
   async function handleRegisterEmailSubmit(e: React.FormEvent) {
@@ -350,6 +358,9 @@ export default function AuthModal({
     }
 
     setRegisterStep("success");
+    // Same reasoning as the login success path above — invalidate the
+    // client router cache now that the session actually exists.
+    router.refresh();
   }
 
   async function handleForgotPasswordSubmit(e: React.FormEvent) {
