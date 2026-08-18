@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type {
   MarketplaceCard,
   MarketplaceStats,
@@ -50,7 +50,7 @@ function mapCard(row: CardRow): MarketplaceCard {
 }
 
 export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const { data, error } = await supabase
     .from("cards")
@@ -91,7 +91,7 @@ export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
 export async function getMarketplaceStats(
   cards: MarketplaceCard[]
 ): Promise<MarketplaceStats> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const prices = cards
     .map((c) => c.price_usd)
@@ -151,7 +151,7 @@ export async function getMarketplaceStats(
 const INTERACTION_WEIGHTS = { wish: 3, sold: 2, listing: 1 };
 
 export async function getTrendingCards(limit = 6): Promise<TrendingCard[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const { data, error } = await supabase
     .from("cards")

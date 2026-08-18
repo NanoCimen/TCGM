@@ -1,11 +1,14 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import PokemonCollectionPage, {
   type CollectionCard,
   type CollectionStats,
   type SaleActivity,
 } from "@/components/collection/PokemonCollectionPage";
 
-export const dynamic = "force-dynamic";
+// Public market data only (no per-user query here — logged-in state,
+// wishlist, etc. are fetched client-side inside PokemonCollectionPage), so
+// this can be cached instead of re-fetched from Supabase on every visit.
+export const revalidate = 60;
 
 export const metadata = {
   title: "Pokémon TCG — TCGRD",
@@ -72,7 +75,7 @@ function firstOf<T>(v: T | T[] | null): T | null {
 }
 
 export default async function PokemonCollection() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const [{ data: cards }, { data: soldOffers }, { data: sales }] =
     await Promise.all([

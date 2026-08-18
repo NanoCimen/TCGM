@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, Suspense } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -749,26 +749,51 @@ function VideoBackdrop({
   desktopOrderClassName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // All 4 of these videos autoplaying at once on page load (~25-35MB each)
+  // is the single biggest mobile perf hit on this page — defer starting
+  // the fetch/decode until each one is actually about to scroll into view.
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const containerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <>
       <button
+        ref={containerRef}
         type="button"
         onClick={() => setExpanded(true)}
         aria-label="Ampliar video"
-        className={`group relative mx-auto block w-full max-w-sm aspect-video cursor-zoom-in overflow-hidden rounded-2xl border border-white/10 lg:mx-0 lg:max-w-none lg:aspect-video lg:w-full lg:border-0 ${desktopClassName} ${desktopOrderClassName}`}
+        className={`group relative mx-auto block w-full max-w-sm aspect-video cursor-zoom-in overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] lg:mx-0 lg:max-w-none lg:aspect-video lg:w-full lg:border-0 ${desktopClassName} ${desktopOrderClassName}`}
       >
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          disablePictureInPicture
-          disableRemotePlayback
-          className={`h-full w-full object-cover ${scale130 ? "scale-130" : ""}`}
-        >
-          <source src={src} type="video/mp4" />
-        </video>
+        {shouldLoad && (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="none"
+            disablePictureInPicture
+            disableRemotePlayback
+            className={`h-full w-full object-cover ${scale130 ? "scale-130" : ""}`}
+          >
+            <source src={src} type="video/mp4" />
+          </video>
+        )}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/25 group-hover:opacity-100">
           <span className="rounded-full bg-black/60 p-3 backdrop-blur-sm">
             <Maximize2 className="h-5 w-5 text-white" strokeWidth={2} />

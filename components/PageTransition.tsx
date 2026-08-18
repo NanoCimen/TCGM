@@ -19,7 +19,14 @@ export default function PageTransition({ children }: { children: ReactNode }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        // mode="wait" makes this fully sequential — exit, then enter — so
+        // its duration is a mandatory tax on every navigation (was 0.28s
+        // each way, ~560ms total). Kept the exact same fade, just quicker,
+        // rather than switching to a concurrent mode, since that would let
+        // the outgoing and incoming pages' Navbar/AmbientGlow/etc. be
+        // mounted simultaneously for a moment — a visual behavior change
+        // not worth risking for this.
+        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
       >
         {children}
       </motion.div>
