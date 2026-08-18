@@ -21,7 +21,7 @@ export type RawMessage = {
   read: boolean;
   created_at: string;
   cards: { card_name: string; image_url: string | null } | null;
-  sender: { display_name: string | null } | null;
+  sender: { username: string | null } | null;
 };
 
 export type ClosedConversation = {
@@ -63,8 +63,8 @@ export type OfferWithDetails = {
     price_usd: number | null;
     status: string;
   } | null;
-  buyer: { id: string; display_name: string | null; phone: string | null } | null;
-  seller: { id: string; display_name: string | null; phone: string | null } | null;
+  buyer: { id: string; username: string | null; phone: string | null } | null;
+  seller: { id: string; username: string | null; phone: string | null } | null;
 };
 
 type TabKey = "coleccion" | "reservadas" | "ventas" | "ofertas-recibidas" | "ofertas-hechas" | "mensajes" | "actividad";
@@ -198,7 +198,7 @@ export function OfferCard({
           <p className="text-[11px] text-gray-500">
             {role === "seller" ? "Comprador" : "Vendedor"}:{" "}
             <span className="text-gray-300 font-medium">
-              {counterpart.display_name ?? "Usuario"}
+              {counterpart.username ?? "Usuario"}
             </span>
           </p>
         )}
@@ -266,7 +266,7 @@ export function OfferCard({
                   openOfferAcceptedWhatsApp({
                     cardName: card.card_name,
                     setName: card.set_name,
-                    buyerName: offer.buyer?.display_name ?? "el comprador",
+                    buyerName: offer.buyer?.username ?? "el comprador",
                     buyerPhone: offer.buyer?.phone,
                     priceUsd: offer.offer_price,
                   })
@@ -313,7 +313,7 @@ export function OfferCard({
                   openOfferAcceptedBuyerWhatsApp({
                     cardName: card.card_name,
                     setName: card.set_name,
-                    sellerName: offer.seller?.display_name ?? "el vendedor",
+                    sellerName: offer.seller?.username ?? "el vendedor",
                     sellerPhone: offer.seller?.phone,
                     priceUsd: offer.offer_price,
                   })
@@ -453,7 +453,7 @@ function MensajesTab({
 }
 
 export default function MyCardsDashboard({
-  displayName,
+  username,
   email,
   avatarUrl,
   themeColor = null,
@@ -465,7 +465,7 @@ export default function MyCardsDashboard({
   allMessages = [],
   closedConversations = [],
 }: {
-  displayName: string;
+  username: string;
   email: string;
   avatarUrl: string | null;
   themeColor?: string | null;
@@ -494,7 +494,7 @@ export default function MyCardsDashboard({
 
   const [relisting, setRelisting] = useState<string | null>(null);
 
-  const name = displayName || email;
+  const name = username || email;
   const initials = name.substring(0, 2).toUpperCase();
 
   // A card someone else sold that I bought — owner_id is only set once the
@@ -582,8 +582,8 @@ export default function MyCardsDashboard({
     if (!threadMap.has(key)) {
       const otherName =
         m.sender_id === userId
-          ? null // we sent it, other is receiver — no display_name in this direction
-          : (m.sender as { display_name: string | null } | null)?.display_name ?? "Usuario";
+          ? null // we sent it, other is receiver — no username in this direction
+          : (m.sender as { username: string | null } | null)?.username ?? "Usuario";
       threadMap.set(key, {
         cardId: m.card_id,
         cardName: (m.cards as { card_name: string } | null)?.card_name ?? "Carta",

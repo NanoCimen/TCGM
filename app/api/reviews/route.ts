@@ -10,7 +10,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabase
     .from("reviews")
-    .select("id, rating, comment, created_at, reviewer_id, card_id, reviewer:users!reviewer_id(display_name)")
+    .select("id, rating, comment, created_at, reviewer_id, card_id, reviewer:users!reviewer_id(username)")
     .eq("seller_id", sellerId)
     .order("created_at", { ascending: false })
     .limit(20);

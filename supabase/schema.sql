@@ -9,7 +9,7 @@
 create table public.users (
   id              uuid primary key references auth.users(id) on delete cascade,
   phone           text,
-  display_name    text,
+  username        text,
   avatar_url      text,
   banner_url      text,
   invite_code_used text,
@@ -92,7 +92,7 @@ language plpgsql
 security definer set search_path = ''
 as $$
 begin
-  insert into public.users (id, display_name)
+  insert into public.users (id, username)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1))
@@ -135,7 +135,7 @@ declare
   new_code text;
   attempts int;
 begin
-  if old.display_name is null and new.display_name is not null then
+  if old.username is null and new.username is not null then
     for i in 1..3 loop
       attempts := 0;
       loop

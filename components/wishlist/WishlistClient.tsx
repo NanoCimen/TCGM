@@ -358,13 +358,13 @@ function WishlistTile({
 
 export default function WishlistClient({
   initialItems,
-  displayName,
+  username,
   email,
   avatarUrl,
   themeColor = null,
 }: {
   initialItems: WishlistItem[];
-  displayName: string;
+  username: string;
   email: string;
   avatarUrl: string | null;
   themeColor?: string | null;
@@ -372,7 +372,7 @@ export default function WishlistClient({
   const [items, setItems] = useState(initialItems);
   const [showModal, setShowModal] = useState(false);
 
-  const name = displayName || email;
+  const name = username || email;
   const initials = name.substring(0, 2).toUpperCase();
 
   const existingIds = new Set(items.map((i) => i.pokemon_tcg_id).filter(Boolean) as string[]);

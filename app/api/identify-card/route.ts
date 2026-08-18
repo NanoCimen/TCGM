@@ -115,7 +115,7 @@ export async function POST(request: Request) {
   if (!userRow) {
     const { error: profileError } = await supabase.from("users").insert({
       id: user.id,
-      display_name: user.email?.split("@")[0] ?? "Usuario",
+      username: user.email?.split("@")[0] ?? "Usuario",
     });
     if (profileError) {
       console.error("[identify-card] could not create user profile:", profileError.message);

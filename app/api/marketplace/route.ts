@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     .select(
       `id, card_name, set_name, card_number, image_url, price_usd, tcg_market_price,
        status, created_at, variant, language, is_graded, grade, grade_company,
-       users!seller_id ( display_name )`
+       users!seller_id ( username )`
     )
     .eq("status", "available")
     .order("created_at", { ascending: false })

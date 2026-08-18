@@ -83,7 +83,7 @@ export default function AuthModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [registerStep, setRegisterStep] = useState<RegisterStep>("email");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -103,7 +103,7 @@ export default function AuthModal({
     setConfirmPassword("");
     setShowPassword(false);
     setOtp("");
-    setDisplayName("");
+    setUsername("");
     setPhone("");
     setRegisterStep("email");
     setAcceptedTerms(false);
@@ -127,7 +127,7 @@ export default function AuthModal({
     setOtp("");
     setPassword("");
     setConfirmPassword("");
-    setDisplayName("");
+    setUsername("");
     setPhone("");
     setForgotPassword(initialForgotPassword);
     setForgotSent(false);
@@ -311,7 +311,7 @@ export default function AuthModal({
       return;
     }
 
-    setDisplayName(email.split("@")[0] ?? "");
+    setUsername(email.split("@")[0] ?? "");
     setRegisterStep("profile");
   }
 
@@ -319,7 +319,7 @@ export default function AuthModal({
     e.preventDefault();
     setError("");
 
-    const name = displayName.trim();
+    const name = username.trim();
     const phoneDigits = phone.trim();
     if (name.length < 2) {
       setError("Ingresa un nombre de usuario");
@@ -339,7 +339,7 @@ export default function AuthModal({
     const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: name, phone: phoneDigits }),
+      body: JSON.stringify({ username: name, phone: phoneDigits }),
     });
     const json = await res.json().catch(() => ({}));
     setLoading(false);
@@ -988,9 +988,9 @@ export default function AuthModal({
                     type="text"
                     autoFocus
                     autoComplete="name"
-                    value={displayName}
+                    value={username}
                     onChange={(e) => {
-                      setDisplayName(e.target.value);
+                      setUsername(e.target.value);
                       if (error) setError("");
                     }}
                     placeholder="Nombre de usuario"
@@ -1022,7 +1022,7 @@ export default function AuthModal({
 
                 <button
                   type="submit"
-                  disabled={!displayName.trim() || !phone.trim() || loading}
+                  disabled={!username.trim() || !phone.trim() || loading}
                   className="w-full bg-brand text-black text-sm font-bold py-3.5 rounded-xl hover:bg-[#00c64b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (

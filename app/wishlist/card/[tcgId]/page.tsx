@@ -85,7 +85,7 @@ export default async function WishlistCardPage({
   const { data: listingRows } = await supabase
     .from("cards")
     .select(
-      "id, card_name, price_usd, status, variant, language, image_url, users!seller_id(display_name)"
+      "id, card_name, price_usd, status, variant, language, image_url, users!seller_id(username)"
     )
     .eq("card_name", card.name)
     .eq("status", "available")
@@ -102,7 +102,7 @@ export default async function WishlistCardPage({
       variant: row.variant as string | null,
       language: row.language as string | null,
       image_url: row.image_url as string | null,
-      seller_name: (seller as { display_name?: string } | null)?.display_name ?? "Vendedor",
+      seller_name: (seller as { username?: string } | null)?.username ?? "Vendedor",
     };
   });
 

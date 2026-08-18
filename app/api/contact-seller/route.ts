@@ -20,11 +20,11 @@ export async function POST(req: Request) {
   // Get buyer display name
   const { data: buyer } = await supabase
     .from("users")
-    .select("display_name")
+    .select("username")
     .eq("id", user.id)
-    .single<{ display_name: string | null }>();
+    .single<{ username: string | null }>();
 
-  const buyerName = buyer?.display_name ?? "Un comprador";
+  const buyerName = buyer?.username ?? "Un comprador";
 
   // Get card name
   const { data: card } = await supabase

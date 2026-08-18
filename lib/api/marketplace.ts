@@ -22,7 +22,7 @@ type CardRow = {
   is_graded: boolean | null;
   grade: string | null;
   grade_company: string | null;
-  users: { display_name: string | null } | { display_name: string | null }[] | null;
+  users: { username: string | null } | { username: string | null }[] | null;
 };
 
 function mapCard(row: CardRow): MarketplaceCard {
@@ -40,7 +40,7 @@ function mapCard(row: CardRow): MarketplaceCard {
     tcg_market_price: row.tcg_market_price,
     status: row.status,
     created_at: row.created_at,
-    seller_name: seller?.display_name ?? "Vendedor",
+    seller_name: seller?.username ?? "Vendedor",
     variant: row.variant ?? "Regular",
     language: row.language ?? "EN",
     is_graded: row.is_graded ?? false,
@@ -71,7 +71,7 @@ export async function getMarketplaceCards(): Promise<MarketplaceCard[]> {
       is_graded,
       grade,
       grade_company,
-      users!seller_id ( display_name )
+      users!seller_id ( username )
     `
     )
     .eq("status", "available")
@@ -172,7 +172,7 @@ export async function getTrendingCards(limit = 6): Promise<TrendingCard[]> {
       is_graded,
       grade,
       grade_company,
-      users!seller_id ( display_name )
+      users!seller_id ( username )
     `
     )
     .eq("status", "available")

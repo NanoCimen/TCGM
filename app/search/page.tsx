@@ -20,7 +20,7 @@ type Row = {
   is_graded: boolean | null;
   grade: string | null;
   grade_company: string | null;
-  users: { display_name: string | null } | { display_name: string | null }[] | null;
+  users: { username: string | null } | { username: string | null }[] | null;
 };
 
 export default async function SearchPage({
@@ -40,7 +40,7 @@ export default async function SearchPage({
       .select(
         `id, card_name, set_name, card_number, image_url, official_image_url,
          price_usd, variant, language, is_graded, grade, grade_company,
-         users!seller_id ( display_name )`
+         users!seller_id ( username )`
       )
       .eq("status", "available")
       .ilike("card_name", `%${q}%`)
@@ -136,7 +136,7 @@ export default async function SearchPage({
                       {formatPrice(card.price_usd)}
                     </p>
                     <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                      {seller?.display_name ?? "Vendedor"}
+                      {seller?.username ?? "Vendedor"}
                     </p>
                   </div>
                 </Link>

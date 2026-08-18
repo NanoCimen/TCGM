@@ -1158,7 +1158,7 @@ export default function CardDetailClient({
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white truncate">
-                        {offer.buyer?.display_name ?? "Comprador"}
+                        {offer.buyer?.username ?? "Comprador"}
                       </p>
                       <p className="text-[11px] text-gray-600">
                         {new Date(offer.created_at).toLocaleDateString("es-DO", {

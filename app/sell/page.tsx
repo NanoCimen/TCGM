@@ -13,11 +13,11 @@ export default async function SellPage() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name, avatar_url")
+    .select("username, avatar_url")
     .eq("id", user.id)
     .single();
 
-  const name = profile?.display_name || user.email || "";
+  const name = profile?.username || user.email || "";
   const initials = name.substring(0, 2).toUpperCase();
 
   return (

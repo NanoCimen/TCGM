@@ -38,14 +38,14 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}${next}`);
   }
 
-  // Route new users (no display_name yet) through onboarding
+  // Route new users (no username yet) through onboarding
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name")
+    .select("username")
     .eq("id", user.id)
     .single();
 
-  if (!profile?.display_name) {
+  if (!profile?.username) {
     return NextResponse.redirect(`${origin}/onboarding`);
   }
 

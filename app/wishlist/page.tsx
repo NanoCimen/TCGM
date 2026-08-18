@@ -12,7 +12,7 @@ export default async function WishlistPage() {
   if (!user) redirect("/");
 
   const [{ data: profile }, { data: rows }] = await Promise.all([
-    supabase.from("users").select("display_name, avatar_url, theme_color").eq("id", user.id).single(),
+    supabase.from("users").select("username, avatar_url, theme_color").eq("id", user.id).single(),
     supabase
       .from("wishlist")
       .select("id, pokemon_tcg_id, card_name, card_number, set_name, image_url, variant, created_at")
@@ -42,7 +42,7 @@ export default async function WishlistPage() {
   return (
     <WishlistClient
       initialItems={items}
-      displayName={profile?.display_name ?? ""}
+      username={profile?.username ?? ""}
       email={user.email ?? ""}
       avatarUrl={profile?.avatar_url ?? null}
       themeColor={profile?.theme_color ?? null}

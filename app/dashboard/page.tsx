@@ -33,7 +33,7 @@ async function DashboardPageContent() {
   if (!user) {
     return (
       <MyCardsDashboard
-        displayName="Invitado"
+        username="Invitado"
         email=""
         avatarUrl={null}
         themeColor={null}
@@ -58,8 +58,8 @@ async function DashboardPageContent() {
     created_at,
     responded_at,
     cards ( id, card_name, set_name, image_url, official_image_url, price_usd, status ),
-    buyer:users!buyer_id ( id, display_name, phone ),
-    seller:users!seller_id ( id, display_name, phone )
+    buyer:users!buyer_id ( id, username, phone ),
+    seller:users!seller_id ( id, username, phone )
   `;
 
   const [
@@ -73,7 +73,7 @@ async function DashboardPageContent() {
   ] = await Promise.all([
     supabase
       .from("users")
-      .select("display_name, avatar_url, theme_color")
+      .select("username, avatar_url, theme_color")
       .eq("id", user.id)
       .single(),
     supabase
@@ -103,7 +103,7 @@ async function DashboardPageContent() {
     supabase
       .from("messages")
       .select(
-        "id, card_id, sender_id, receiver_id, content, read, created_at, cards:card_id ( card_name, image_url ), sender:sender_id ( display_name )"
+        "id, card_id, sender_id, receiver_id, content, read, created_at, cards:card_id ( card_name, image_url ), sender:sender_id ( username )"
       )
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
@@ -123,7 +123,7 @@ async function DashboardPageContent() {
 
   return (
     <MyCardsDashboard
-      displayName={profile?.display_name ?? ""}
+      username={profile?.username ?? ""}
       email={user.email ?? ""}
       avatarUrl={profile?.avatar_url ?? null}
       themeColor={profile?.theme_color ?? null}

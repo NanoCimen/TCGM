@@ -66,7 +66,7 @@ type CardRow = {
   is_graded: boolean | null;
   grade: string | null;
   grade_company: string | null;
-  users: { display_name: string | null } | { display_name: string | null }[] | null;
+  users: { username: string | null } | { username: string | null }[] | null;
 };
 
 export default async function CardDetailPage({
@@ -99,7 +99,7 @@ export default async function CardDetailPage({
         is_graded,
         grade,
         grade_company,
-        users!seller_id ( display_name )
+        users!seller_id ( username )
       `
       )
       .eq("id", params.id)
@@ -156,8 +156,8 @@ export default async function CardDetailPage({
       created_at,
       responded_at,
       cards ( id, card_name, set_name, image_url, official_image_url, price_usd ),
-      buyer:users!buyer_id ( id, display_name ),
-      seller:users!seller_id ( id, display_name )
+      buyer:users!buyer_id ( id, username ),
+      seller:users!seller_id ( id, username )
     `
     )
     .eq("card_id", card.id)
@@ -178,8 +178,8 @@ export default async function CardDetailPage({
       is_buy_now,
       created_at,
       responded_at,
-      buyer:users!buyer_id ( display_name ),
-      seller:users!seller_id ( display_name )
+      buyer:users!buyer_id ( username ),
+      seller:users!seller_id ( username )
     `
     )
     .eq("card_id", card.id)
@@ -192,8 +192,8 @@ export default async function CardDetailPage({
     is_buy_now: boolean;
     created_at: string;
     responded_at: string | null;
-    buyer: { display_name: string | null } | { display_name: string | null }[] | null;
-    seller: { display_name: string | null } | { display_name: string | null }[] | null;
+    buyer: { username: string | null } | { username: string | null }[] | null;
+    seller: { username: string | null } | { username: string | null }[] | null;
   };
 
   const firstOf = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
@@ -217,8 +217,8 @@ export default async function CardDetailPage({
         priceUsd: row.offer_price,
         isBuyNow: row.is_buy_now,
         date: row.responded_at ?? row.created_at,
-        buyerName: firstOf(row.buyer)?.display_name ?? "Comprador",
-        sellerName: firstOf(row.seller)?.display_name ?? "Vendedor",
+        buyerName: firstOf(row.buyer)?.username ?? "Comprador",
+        sellerName: firstOf(row.seller)?.username ?? "Vendedor",
         status,
       };
     }
@@ -228,7 +228,7 @@ export default async function CardDetailPage({
     <CardDetailClient
       card={card}
       sellerId={card.seller_id}
-      sellerName={seller?.display_name ?? "Vendedor"}
+      sellerName={seller?.username ?? "Vendedor"}
       sellerPhone={sellerPhone}
       currentUserId={user?.id ?? null}
       existingOffer={existingOffer}

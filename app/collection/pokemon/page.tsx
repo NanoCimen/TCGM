@@ -30,7 +30,7 @@ type CardRow = {
   is_graded: boolean | null;
   grade: string | null;
   grade_company: string | null;
-  users: { display_name: string | null } | { display_name: string | null }[] | null;
+  users: { username: string | null } | { username: string | null }[] | null;
 };
 
 type OfferRow = {
@@ -39,8 +39,8 @@ type OfferRow = {
   responded_at: string | null;
   created_at: string;
   cards: { card_name: string; image_url: string | null; official_image_url: string | null; status: string } | { card_name: string; image_url: string | null; official_image_url: string | null; status: string }[] | null;
-  buyer: { display_name: string | null } | { display_name: string | null }[] | null;
-  seller: { display_name: string | null } | { display_name: string | null }[] | null;
+  buyer: { username: string | null } | { username: string | null }[] | null;
+  seller: { username: string | null } | { username: string | null }[] | null;
 };
 
 type SoldOfferCard = {
@@ -64,7 +64,7 @@ type SoldOfferRow = {
   responded_at: string | null;
   created_at: string;
   cards: SoldOfferCard | SoldOfferCard[] | null;
-  seller: { display_name: string | null } | { display_name: string | null }[] | null;
+  seller: { username: string | null } | { username: string | null }[] | null;
 };
 
 function firstOf<T>(v: T | T[] | null): T | null {
@@ -82,7 +82,7 @@ export default async function PokemonCollection() {
           `id, card_name, set_name, card_number, image_url, official_image_url,
            price_usd, tcg_market_price, status, created_at, published_at, seller_id,
            variant, language, is_graded, grade, grade_company,
-           users!seller_id ( display_name )`
+           users!seller_id ( username )`
         )
         // Reserved (hold) and sold cards are handled elsewhere: hold is
         // pulled off the market entirely, and sold cards come from the
@@ -103,7 +103,7 @@ export default async function PokemonCollection() {
         .select(
           `id, offer_price, responded_at, created_at,
            cards:card_id ( id, card_name, set_name, card_number, image_url, official_image_url, variant, language, is_graded, grade, grade_company, status ),
-           seller:users!seller_id ( display_name )`
+           seller:users!seller_id ( username )`
         )
         .eq("status", "accepted")
         .order("responded_at", { ascending: false })
@@ -113,8 +113,8 @@ export default async function PokemonCollection() {
         .select(
           `id, offer_price, responded_at, created_at,
            cards:card_id ( card_name, image_url, official_image_url, status ),
-           buyer:users!buyer_id ( display_name ),
-           seller:users!seller_id ( display_name )`
+           buyer:users!buyer_id ( username ),
+           seller:users!seller_id ( username )`
         )
         .eq("status", "accepted")
         .order("responded_at", { ascending: false })
@@ -160,7 +160,7 @@ export default async function PokemonCollection() {
         // changed via a resell) — it's irrelevant here anyway, since a
         // sold-history row is never buyable, so isOwn/canBuy don't apply.
         seller_id: "",
-        seller_name: seller?.display_name ?? "Vendedor",
+        seller_name: seller?.username ?? "Vendedor",
         variant: card.variant ?? "Regular",
         language: card.language ?? "EN",
         is_graded: card.is_graded ?? false,
@@ -185,7 +185,7 @@ export default async function PokemonCollection() {
       created_at: row.created_at,
       published_at: row.published_at,
       seller_id: row.seller_id,
-      seller_name: seller?.display_name ?? "Vendedor",
+      seller_name: seller?.username ?? "Vendedor",
       variant: row.variant ?? "Regular",
       language: row.language ?? "EN",
       is_graded: row.is_graded ?? false,
@@ -216,8 +216,8 @@ export default async function PokemonCollection() {
         cardName: card.card_name,
         cardImage: card.official_image_url ?? card.image_url,
         priceUsd: row.offer_price,
-        buyerName: buyer?.display_name ?? "Comprador",
-        sellerName: seller?.display_name ?? "Vendedor",
+        buyerName: buyer?.username ?? "Comprador",
+        sellerName: seller?.username ?? "Vendedor",
         date: row.responded_at ?? row.created_at,
       };
     })

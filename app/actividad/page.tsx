@@ -15,15 +15,15 @@ export default async function ActividadRoute() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name, avatar_url, theme_color")
+    .select("username, avatar_url, theme_color")
     .eq("id", user.id)
     .single();
 
   const offerSelect = `
     id, card_id, offer_price, message, status, is_buy_now, created_at, responded_at,
     cards ( id, card_name, set_name, image_url, official_image_url, price_usd, status ),
-    buyer:users!buyer_id ( id, display_name, phone ),
-    seller:users!seller_id ( id, display_name, phone )
+    buyer:users!buyer_id ( id, username, phone ),
+    seller:users!seller_id ( id, username, phone )
   `;
 
   const [{ data: asSellerOffers }, { data: asBuyerOffers }] = await Promise.all([
@@ -41,7 +41,7 @@ export default async function ActividadRoute() {
       .order("responded_at", { ascending: false, nullsFirst: false }),
   ]);
 
-  const name = profile?.display_name || user.email || "";
+  const name = profile?.username || user.email || "";
   const initials = name.substring(0, 2).toUpperCase();
 
   return (

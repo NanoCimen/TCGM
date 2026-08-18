@@ -10,7 +10,7 @@ export default function SimpleDashboardPage({
   title,
   emptyTitle,
   emptySubtitle,
-  displayName,
+  username,
   email,
   avatarUrl,
 }: {
@@ -18,11 +18,11 @@ export default function SimpleDashboardPage({
   title: string;
   emptyTitle: string;
   emptySubtitle: string;
-  displayName: string;
+  username: string;
   email: string;
   avatarUrl: string | null;
 }) {
-  const name = displayName || email;
+  const name = username || email;
   const initials = name.substring(0, 2).toUpperCase();
 
   return (

@@ -3,7 +3,7 @@ export type CardStatus = "draft" | "available" | "sold" | "hold";
 export interface User {
   id: string;
   phone: string | null;
-  display_name: string | null;
+  username: string | null;
   avatar_url: string | null;
   invite_code_used: string | null;
   created_at: string;

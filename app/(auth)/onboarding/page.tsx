@@ -9,7 +9,7 @@ import { friendlyUniqueViolation } from "@/lib/supabase/profileErrors";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   // Referral codes are temporarily disabled — see the "Código de referido" field below.
   const refCode = "";
@@ -29,7 +29,7 @@ export default function OnboardingPage() {
         return;
       }
 
-      setDisplayName(user.email?.split("@")[0] ?? "");
+      setUsername(user.email?.split("@")[0] ?? "");
       setChecking(false);
     }
     init();
@@ -39,7 +39,7 @@ export default function OnboardingPage() {
     e.preventDefault();
     setError("");
 
-    const name = displayName.trim();
+    const name = username.trim();
     if (!name) return;
     if (phone.trim().replace(/\D/g, "").length < 10) {
       setError("Ingresa un número de WhatsApp válido");
@@ -59,7 +59,7 @@ export default function OnboardingPage() {
     }
 
     const { error: upsertError } = await supabase.from("users").upsert(
-      { id: user.id, display_name: name, phone: phone.trim() },
+      { id: user.id, username: name, phone: phone.trim(), username_claimed: true },
       { onConflict: "id" }
     );
 
@@ -109,9 +109,9 @@ export default function OnboardingPage() {
         <input
           type="text"
           autoFocus
-          value={displayName}
+          value={username}
           onChange={(e) => {
-            setDisplayName(e.target.value);
+            setUsername(e.target.value);
             if (error) setError("");
           }}
           placeholder="Tu nombre"
@@ -155,7 +155,7 @@ export default function OnboardingPage() {
 
         <button
           type="submit"
-          disabled={!displayName.trim() || !phone.trim() || loading}
+          disabled={!username.trim() || !phone.trim() || loading}
           className="w-full bg-brand hover:bg-[#00c64b] text-black font-bold py-4 rounded-2xl shadow-[0_0_20px_-5px_rgba(0,229,89,0.3)] hover:shadow-[0_0_25px_-5px_rgba(0,229,89,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 text-[15px]"
         >
           {loading ? (

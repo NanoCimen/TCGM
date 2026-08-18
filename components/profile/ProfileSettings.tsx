@@ -90,24 +90,30 @@ const THEME_COLORS = [
 export default function ProfileSettings({
   userId,
   email,
-  initialDisplayName,
+  initialUsername,
   initialPhone,
   initialAvatarUrl,
   initialThemeColor,
   initialNotifications,
   initialInvites,
+  usernameClaimed,
+  remainingUsernameChanges,
+  usernameChangeResetAt,
 }: {
   userId: string;
   email: string;
-  initialDisplayName: string;
+  initialUsername: string;
   initialPhone: string | null;
   initialAvatarUrl: string | null;
   initialThemeColor: string;
   initialNotifications: Notifications;
   initialInvites: Invite[];
+  usernameClaimed: boolean;
+  remainingUsernameChanges: number;
+  usernameChangeResetAt: string | null;
 }) {
   const router = useRouter();
-  const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [username, setUsername] = useState(initialUsername);
   const [phone, setPhone] = useState(initialPhone ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
@@ -129,7 +135,7 @@ export default function ProfileSettings({
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  const initials = (displayName || email).substring(0, 2).toUpperCase();
+  const initials = (username || email).substring(0, 2).toUpperCase();
 
   function showSavedToast() {
     setSavedToast(true);
@@ -189,7 +195,7 @@ export default function ProfileSettings({
     e.preventDefault();
     setProfileError("");
 
-    const trimmed = displayName.trim();
+    const trimmed = username.trim();
     if (trimmed.length < 2) {
       setProfileError("El nombre debe tener al menos 2 caracteres");
       return;
@@ -197,7 +203,7 @@ export default function ProfileSettings({
 
     setSavingProfile(true);
     const body: Record<string, string | null> = {
-      display_name: trimmed,
+      username: trimmed,
       phone: phone.trim() || null,
       theme_color: themeColor,
     };
@@ -334,22 +340,37 @@ export default function ProfileSettings({
 
                 <div>
                   <label
-                    htmlFor="displayName"
+                    htmlFor="username"
                     className="block text-sm font-bold text-white mb-2"
                   >
                     Nombre de usuario
                   </label>
                   <input
-                    id="displayName"
+                    id="username"
                     type="text"
-                    value={displayName}
+                    value={username}
                     onChange={(e) => {
-                      setDisplayName(e.target.value);
+                      setUsername(e.target.value);
                       if (profileError) setProfileError("");
                     }}
                     placeholder="Tu nombre"
                     className="w-full bg-[#1a1a1a] border border-gray-800 rounded-lg py-3 px-4 text-sm text-white placeholder:text-gray-600 outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-700 transition-all"
                   />
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    {!usernameClaimed
+                      ? "Tu primer cambio de nombre es gratis."
+                      : remainingUsernameChanges > 0
+                        ? `Te ${remainingUsernameChanges === 1 ? "queda" : "quedan"} ${remainingUsernameChanges} cambio${remainingUsernameChanges === 1 ? "" : "s"} de nombre en los próximos 6 meses.`
+                        : `Alcanzaste el límite de cambios de nombre. Podrás cambiarlo de nuevo el ${
+                            usernameChangeResetAt
+                              ? new Date(usernameChangeResetAt).toLocaleDateString("es-DO", {
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric",
+                                })
+                              : "más adelante"
+                          }.`}
+                  </p>
                 </div>
 
                 <div>

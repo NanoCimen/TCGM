@@ -49,11 +49,11 @@ export default function VerifyPage() {
     // Route new users through onboarding
     const { data: profile } = await supabase
       .from("users")
-      .select("display_name")
+      .select("username")
       .eq("id", (await supabase.auth.getUser()).data.user!.id)
       .single();
 
-    if (!profile?.display_name) {
+    if (!profile?.username) {
       router.replace("/onboarding");
     } else {
       router.replace("/");
