@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { Activity, Heart, Layers, LogOut, User as UserIcon } from "lucide-react";
 import Navbar from "@/components/marketplace/Navbar";
 import AmbientGlow from "@/components/marketplace/AmbientGlow";
-import Footer from "@/components/marketplace/Footer";
 import SignOutConfirmModal from "@/components/auth/SignOutConfirmModal";
 import { createClient } from "@/lib/supabase/client";
 
@@ -154,7 +153,7 @@ export default function DashboardShell({
           </button>
         </aside>
 
-        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60 md:min-h-[calc(100vh-5rem)]">
+        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60">
           {/* The sidebar (Mis cartas/Actividad/Wishlist/Perfil) is
               hidden md:flex — without this, mobile visitors had no way to
               get from one of these pages to another at all. */}
@@ -188,13 +187,6 @@ export default function DashboardShell({
           </motion.div>
         </main>
       </div>
-
-      {/* Full-width, not nested in <main> — the sidebar is fixed to the
-          left edge of the viewport, so a footer indented to sit only in
-          main's content column (to the right of it) ends up looking
-          off-center/squeezed instead of centered like every other
-          footer in the app. */}
-      <Footer compact />
 
       <SignOutConfirmModal
         open={confirmOpen}
