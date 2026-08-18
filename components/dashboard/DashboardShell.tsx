@@ -155,6 +155,30 @@ export default function DashboardShell({
         </aside>
 
         <main className="flex-1 px-4 sm:px-8 lg:px-12 py-10 min-w-0 md:ml-56 lg:ml-60 md:min-h-[calc(100vh-5rem)]">
+          {/* The sidebar (Mis cartas/Actividad/Wishlist/Perfil) is
+              hidden md:flex — without this, mobile visitors had no way to
+              get from one of these pages to another at all. */}
+          <nav className="md:hidden mb-6 flex items-center gap-2 overflow-x-auto">
+            {NAV_ITEMS.map((item) => {
+              const isActive = item.key === active;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className={`inline-flex flex-shrink-0 items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-tight border transition-colors ${
+                    isActive
+                      ? "bg-brand text-black border-brand"
+                      : "border-white/10 bg-white/[0.03] text-gray-400 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" strokeWidth={2} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
