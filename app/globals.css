@@ -53,6 +53,17 @@ body {
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* Keeps touch/trackpad scrolling but hides the scrollbar track itself —
+     for horizontally-scrollable rows where the scrollbar just adds visual
+     noise (swiping is already the obvious affordance on touch devices). */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 :root {

@@ -158,7 +158,7 @@ export default function DashboardShell({
           {/* The sidebar (Mis cartas/Actividad/Wishlist/Perfil) is
               hidden md:flex — without this, mobile visitors had no way to
               get from one of these pages to another at all. */}
-          <nav className="md:hidden mb-6 flex items-center gap-2 overflow-x-auto">
+          <nav className="md:hidden mb-6 flex items-center gap-2 overflow-x-auto scrollbar-hide">
             {NAV_ITEMS.map((item) => {
               const isActive = item.key === active;
               const Icon = item.icon;
