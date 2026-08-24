@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import PageLoading from "@/components/ui/PageLoading";
 import MyCardsDashboard, {
   type DashboardCard,
   type OfferWithDetails,
@@ -12,9 +13,14 @@ export const dynamic = "force-dynamic";
 // MyCardsDashboard reads the `tab` query param via useSearchParams, which
 // the App Router requires a Suspense boundary for (same requirement
 // MarketplacePage documents for its own useSearchParams usage).
+//
+// fallback was `null` — while DashboardPageContent awaits its 7 parallel
+// Supabase queries below, that rendered literally nothing, and on this
+// near-black theme "nothing" reads as a fully black screen on every
+// navigation into /dashboard. PageLoading gives it an actual fallback.
 export default function DashboardPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoading />}>
       <DashboardPageContent />
     </Suspense>
   );

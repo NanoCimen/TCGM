@@ -11,7 +11,7 @@ export default async function WishlistPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const [{ data: profile }, { data: rows }] = await Promise.all([
+  const [{ data: profile }, { data: rows, error: wishlistError }] = await Promise.all([
     supabase.from("users").select("username, avatar_url, theme_color").eq("id", user.id).single(),
     supabase
       .from("wishlist")
@@ -19,6 +19,18 @@ export default async function WishlistPage() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
   ]);
+
+  // A failed query here (bad RLS policy, transient error, etc.) used to be
+  // indistinguishable from a legitimately empty wishlist — `rows` is null
+  // either way, and `(rows ?? [])` below quietly treats it as "0 cards."
+  // Logging it means a real failure shows up in server logs instead of
+  // just looking like an empty wishlist with no explanation. If you see
+  // "cards aren't appearing" again, check the Vercel/server logs for this
+  // line first — Supabase's own status page only reflects infra health,
+  // not whether this specific query/policy is actually working.
+  if (wishlistError) {
+    console.error("[wishlist page] failed to load wishlist rows:", wishlistError);
+  }
 
   // Check which wishlist cards are currently listed in the marketplace
   const cardNames = (rows ?? []).map((r) => r.card_name);
@@ -46,6 +58,7 @@ export default async function WishlistPage() {
       email={user.email ?? ""}
       avatarUrl={profile?.avatar_url ?? null}
       themeColor={profile?.theme_color ?? null}
+      loadError={Boolean(wishlistError)}
     />
   );
 }

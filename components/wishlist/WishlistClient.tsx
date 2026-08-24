@@ -362,12 +362,18 @@ export default function WishlistClient({
   email,
   avatarUrl,
   themeColor = null,
+  loadError = false,
 }: {
   initialItems: WishlistItem[];
   username: string;
   email: string;
   avatarUrl: string | null;
   themeColor?: string | null;
+  // True when the server-side wishlist query itself failed (RLS, transient
+  // error, etc.) rather than the wishlist legitimately being empty. Surfaces
+  // that distinction here since it used to be silently swallowed — see the
+  // comment in app/wishlist/page.tsx.
+  loadError?: boolean;
 }) {
   const [items, setItems] = useState(initialItems);
   const [showModal, setShowModal] = useState(false);
@@ -432,6 +438,17 @@ export default function WishlistClient({
               </motion.button>
             }
           />
+
+          {/* Shown only when the server-side query actually failed — not for a
+              legitimately empty wishlist, which gets its own state below. */}
+          {loadError && (
+            <div className="flex items-center gap-2 px-4 py-3 mb-6 rounded-xl bg-red-500/10 border border-red-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+              <p className="text-xs text-red-400 font-medium">
+                No pudimos cargar tu wishlist en este momento. Intenta recargar la página.
+              </p>
+            </div>
+          )}
 
           {/* Empty state */}
           {items.length === 0 && (
