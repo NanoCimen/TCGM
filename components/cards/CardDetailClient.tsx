@@ -529,9 +529,14 @@ export default function CardDetailClient({
           is_buy_now: true,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) {
-        setCtaError(json.error);
+      const json = await res.json().catch(() => null);
+      // A network failure, a timeout, or a non-JSON error response (a raw
+      // 500 page instead of the route's JSON body) all land here too, not
+      // just a clean !res.ok — without this, any of those left waTab
+      // dangling on about:blank forever with no explanation, since nothing
+      // downstream of the fetch ever ran to close it or show an error.
+      if (!res.ok || !json) {
+        setCtaError(json?.error ?? "No se pudo completar la compra. Intenta de nuevo.");
         waTab?.close();
         return;
       }
@@ -545,6 +550,9 @@ export default function CardDetailClient({
         priceUsd: card.price_usd!,
         targetWindow: waTab,
       });
+    } catch {
+      setCtaError("No se pudo completar la compra. Intenta de nuevo.");
+      waTab?.close();
     } finally {
       setSubmitting(false);
     }
