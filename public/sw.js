@@ -1,4 +1,4 @@
-const CACHE_NAME = "tcgrd-v2";
+const CACHE_NAME = "tcgrd-v3";
 const PRECACHE_URLS = ["/manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -31,6 +31,21 @@ self.addEventListener("fetch", (event) => {
 
   // Never serve cached HTML — stale pages reference old chunk hashes
   if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Next.js App Router client-side transitions (clicking a nav link, or the
+  // automatic prefetch that fires when a <Link> scrolls into view) are also
+  // same-origin GETs to page paths like /wishlist — they just carry an RSC
+  // header instead of being a "navigate"-mode request, so the checks above
+  // don't catch them. Left uncovered, this handler served those pages'
+  // stale cached RSC payloads on soft navigation (a black screen on routes
+  // like /wishlist that render nothing rather than valid old data), even
+  // though app pages already opt out of Next's own router cache via
+  // staleTimes in next.config.mjs — that setting has no effect on this
+  // separate Cache Storage layer. Always go to the network for these.
+  if (event.request.headers.has("RSC") || url.searchParams.has("_rsc")) {
     event.respondWith(fetch(event.request));
     return;
   }
