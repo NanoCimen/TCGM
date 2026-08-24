@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCheck, ChevronDown, ExternalLink, Heart, Loader2, MessageCircle, Star, X } from "lucide-react";
-import { openBuyNowWhatsApp } from "@/lib/marketplace/whatsapp";
+import { openBuyNowWhatsApp, openWhatsAppPlaceholderTab } from "@/lib/marketplace/whatsapp";
 import { createClient } from "@/lib/supabase/client";
 import AuthModal, { type AuthMode } from "@/components/auth/AuthModal";
 import AuthMenu from "@/components/auth/AuthMenu";
@@ -513,6 +513,12 @@ export default function CardDetailClient({
   async function handleBuyNow() {
     setCtaError("");
     setSubmitting(true);
+    // Opened synchronously, before the `await` below, so it happens inside
+    // the same user-gesture tick as the click — otherwise the browser's
+    // popup blocker silently eats window.open() once it's on the other side
+    // of a fetch, and "Comprar ahora" would confirm the purchase but never
+    // actually open WhatsApp. See openWhatsAppPlaceholderTab's comment.
+    const waTab = openWhatsAppPlaceholderTab();
     try {
       const res = await fetch("/api/offers", {
         method: "POST",
@@ -524,7 +530,11 @@ export default function CardDetailClient({
         }),
       });
       const json = await res.json();
-      if (!res.ok) { setCtaError(json.error); return; }
+      if (!res.ok) {
+        setCtaError(json.error);
+        waTab?.close();
+        return;
+      }
       setDealDone({ offerId: json.offer_id, priceUsd: card.price_usd!, isBuyNow: true });
       setBuyConfirm(false);
       openBuyNowWhatsApp({
@@ -533,6 +543,7 @@ export default function CardDetailClient({
         sellerName,
         sellerPhone,
         priceUsd: card.price_usd!,
+        targetWindow: waTab,
       });
     } finally {
       setSubmitting(false);
