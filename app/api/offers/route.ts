@@ -67,36 +67,57 @@ export async function POST(req: Request) {
 
   const now = new Date().toISOString();
 
-  const { data: offer, error: offerError } = await supabase
-    .from("offers")
-    .insert({
-      card_id,
-      buyer_id: user.id,
-      seller_id: card.seller_id,
-      offer_price: finalPrice,
-      message: message?.trim() || null,
-      is_buy_now: isBuyNow,
-      status: isBuyNow ? "accepted" : "pending",
-      responded_at: isBuyNow ? now : null,
-    })
-    .select("id")
-    .single();
-
-  if (offerError)
-    return NextResponse.json({ error: offerError.message }, { status: 500 });
-
   if (isBuyNow) {
-    // Putting the card on hold and declining rival offers are writes to
-    // rows the buyer doesn't own (the card and other buyers' offers are the
-    // seller's to modify per RLS) — done here on the buyer's behalf as part
-    // of a validated purchase, so they need the admin client. Using the
-    // buyer's own session for these was a silent no-op: RLS filtered the
-    // update to 0 matching rows without raising an error, so the offer got
-    // recorded as accepted but the card's status never actually changed.
+    // The status check above (card.status !== "available") is only a fast
+    // path — it reads then acts, so N concurrent Buy Now requests for the
+    // same card (rapid double/triple-click, a slow first request retried)
+    // can all read "available" before any of them writes. That let every
+    // one of them insert its own "accepted" offer, producing N duplicate
+    // sales for one card in Actividad. Claiming the card with a conditional
+    // UPDATE ... WHERE status = 'available' makes this atomic: Postgres
+    // serializes concurrent updates to the same row, so only the first
+    // request's WHERE clause still matches — every other one affects 0 rows
+    // and is rejected here, before it ever creates an offer. Needs the
+    // admin client since the buyer doesn't own the card row per RLS.
     const admin = createAdminClient();
+    const { data: claimed, error: claimError } = await admin
+      .from("cards")
+      .update({ status: "hold" })
+      .eq("id", card_id)
+      .eq("status", "available")
+      .select("id");
 
-    const [{ error: holdError }] = await Promise.all([
-      admin.from("cards").update({ status: "hold" }).eq("id", card_id),
+    if (claimError)
+      return NextResponse.json({ error: claimError.message }, { status: 500 });
+    if (!claimed || claimed.length === 0)
+      return NextResponse.json(
+        { error: "Esta carta ya no está disponible" },
+        { status: 409 }
+      );
+
+    const { data: offer, error: offerError } = await supabase
+      .from("offers")
+      .insert({
+        card_id,
+        buyer_id: user.id,
+        seller_id: card.seller_id,
+        offer_price: finalPrice,
+        message: message?.trim() || null,
+        is_buy_now: true,
+        status: "accepted",
+        responded_at: now,
+      })
+      .select("id")
+      .single();
+
+    if (offerError) {
+      // We already claimed the card above — undo that so it doesn't get
+      // stuck on "hold" with no accepted offer behind it.
+      await admin.from("cards").update({ status: "available" }).eq("id", card_id);
+      return NextResponse.json({ error: offerError.message }, { status: 500 });
+    }
+
+    const [{ error: declineError }] = await Promise.all([
       admin
         .from("offers")
         .update({ status: "declined", responded_at: now })
@@ -111,17 +132,37 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    if (holdError) {
-      return NextResponse.json({ error: holdError.message }, { status: 500 });
+    if (declineError) {
+      return NextResponse.json({ error: declineError.message }, { status: 500 });
     }
-  } else {
-    await supabase.from("notifications").insert({
-      user_id: card.seller_id,
-      type: "offer_received",
-      card_id,
-      message: `Nueva oferta por tu carta "${card.card_name}".`,
-    });
+
+    return NextResponse.json({ offer_id: offer.id, is_buy_now: true });
   }
 
-  return NextResponse.json({ offer_id: offer.id, is_buy_now: isBuyNow });
+  const { data: offer, error: offerError } = await supabase
+    .from("offers")
+    .insert({
+      card_id,
+      buyer_id: user.id,
+      seller_id: card.seller_id,
+      offer_price: finalPrice,
+      message: message?.trim() || null,
+      is_buy_now: false,
+      status: "pending",
+      responded_at: null,
+    })
+    .select("id")
+    .single();
+
+  if (offerError)
+    return NextResponse.json({ error: offerError.message }, { status: 500 });
+
+  await supabase.from("notifications").insert({
+    user_id: card.seller_id,
+    type: "offer_received",
+    card_id,
+    message: `Nueva oferta por tu carta "${card.card_name}".`,
+  });
+
+  return NextResponse.json({ offer_id: offer.id, is_buy_now: false });
 }

@@ -371,6 +371,11 @@ export default function CardDetailClient({
   const [offerMessage, setOfferMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [ctaError, setCtaError] = useState("");
+  const [cancellingOffer, setCancellingOffer] = useState(false);
+  // Optimistic hide once cancelled, ahead of the router.refresh() that syncs
+  // the real existingOffer prop from the server.
+  const [offerCancelledLocally, setOfferCancelledLocally] = useState(false);
+  const activeExistingOffer = offerCancelledLocally ? null : existingOffer;
   const [dealDone, setDealDone] = useState<{
     offerId: string;
     priceUsd: number;
@@ -531,6 +536,28 @@ export default function CardDetailClient({
       });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleCancelOffer() {
+    if (!existingOffer) return;
+    setCtaError("");
+    setCancellingOffer(true);
+    try {
+      const res = await fetch(`/api/offers/${existingOffer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setCtaError(json?.error ?? "No se pudo cancelar la oferta");
+        return;
+      }
+      setOfferCancelledLocally(true);
+      router.refresh();
+    } finally {
+      setCancellingOffer(false);
     }
   }
 
@@ -1052,11 +1079,29 @@ export default function CardDetailClient({
             {/* Buyer CTAs */}
             {currentUserId && !isSeller && !dealDone && card.status === "available" && (
               <>
-                {existingOffer ? (
-                  <div className="w-full border border-amber-500/30 bg-amber-500/5 text-amber-400 text-sm font-medium py-4 rounded-2xl text-center">
-                    Ya tienes una oferta pendiente — {formatPrice(existingOffer.offer_price)}
+                {/* A pending offer doesn't reserve the card — Buy Now still
+                    works below and, per the API, auto-declines this offer
+                    once it goes through. Surfaced here with its own cancel
+                    action so buyers aren't stuck waiting on a seller
+                    response with no way back out. */}
+                {activeExistingOffer && (
+                  <div className="w-full border border-amber-500/30 bg-amber-500/5 rounded-2xl p-4 space-y-2.5">
+                    <p className="text-amber-400 text-sm font-medium text-center">
+                      Ya tienes una oferta pendiente — {formatPrice(activeExistingOffer.offer_price)}
+                    </p>
+                    {ctaError && !buyConfirm && <p className="text-red-400 text-xs text-center">{ctaError}</p>}
+                    <button
+                      type="button"
+                      onClick={handleCancelOffer}
+                      disabled={cancellingOffer}
+                      className="w-full flex items-center justify-center gap-2 border border-white/[0.09] text-gray-400 hover:text-white text-xs font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {cancellingOffer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Cancelar oferta"}
+                    </button>
                   </div>
-                ) : buyConfirm ? (
+                )}
+
+                {buyConfirm ? (
                   <div className="space-y-2.5">
                     <p className="text-sm text-gray-400 text-center">
                       ¿Confirmas la compra de{" "}
@@ -1102,16 +1147,21 @@ export default function CardDetailClient({
                       />
                       <span className="relative z-10">Comprar ahora — {formatPrice(card.price_usd)}</span>
                     </motion.button>
-                    <motion.button
-                      type="button"
-                      onClick={() => setShowOfferModal(true)}
-                      whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.04)" }}
-                      whileTap={{ scale: 0.97 }}
-                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                      className="w-full border border-white/[0.09] text-gray-400 hover:text-white text-sm font-medium py-4 rounded-lg transition-colors"
-                    >
-                      Hacer oferta →
-                    </motion.button>
+                    {/* Making a second offer while one's already pending is
+                        blocked server-side — no point offering a button
+                        that always 409s; cancel the existing one first. */}
+                    {!activeExistingOffer && (
+                      <motion.button
+                        type="button"
+                        onClick={() => setShowOfferModal(true)}
+                        whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                        className="w-full border border-white/[0.09] text-gray-400 hover:text-white text-sm font-medium py-4 rounded-lg transition-colors"
+                      >
+                        Hacer oferta →
+                      </motion.button>
+                    )}
                   </>
                 )}
               </>
